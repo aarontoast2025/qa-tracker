@@ -32,6 +32,14 @@ export default function Home() {
             )}
           </div>
         </nav>
+        
+        {/* DEBUG: Temporary Environment Variable Check */}
+        <div className="w-full max-w-5xl p-5 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-100 rounded-md text-xs font-mono mb-4">
+          <p><strong>Debug Info:</strong></p>
+          <p>URL defined: {process.env.NEXT_PUBLIC_SUPABASE_URL ? "YES" : "NO"}</p>
+          <p>Key defined: {process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ? "YES" : "NO"}</p>
+        </div>
+
         <div className="flex-1 flex flex-col gap-20 max-w-5xl p-5">
           <Hero />
           <main className="flex-1 flex flex-col gap-6 px-4">
