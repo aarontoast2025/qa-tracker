@@ -50,9 +50,15 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2 font-bold text-2xl">
+          <img src="/qa-logo.svg" alt="QA Logo" className="h-12 w-auto" />
+          <span>Tracker</span>
+        </div>
+      </div>
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl font-bold">QA Tracker</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Login</CardTitle>
           <CardDescription>
             Enter your credentials to access your account. Please contact your{" "}
             <span className="font-semibold text-foreground">Administrator</span>{" "}
