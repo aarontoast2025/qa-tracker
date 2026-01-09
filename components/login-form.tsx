@@ -52,7 +52,8 @@ export function LoginForm({
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <div className="flex flex-col items-center gap-2">
         <div className="flex items-center gap-2 font-bold text-2xl">
-          <img src="/qa-logo.svg" alt="QA Logo" className="h-12 w-auto" />
+          <img src="/logo-black.png" alt="QA Logo" className="h-12 w-auto dark:hidden" />
+          <img src="/logo-white.png" alt="QA Logo" className="h-12 w-auto hidden dark:block" />
           <span>Tracker</span>
         </div>
       </div>

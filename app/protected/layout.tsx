@@ -15,7 +15,8 @@ export default function ProtectedLayout({
           <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
             <div className="flex gap-5 items-center font-bold text-xl">
               <Link href={"/"} className="flex items-center gap-2">
-                <img src="/qa-logo.svg" alt="QA Logo" className="h-10 w-auto" />
+                <img src="/logo-black.png" alt="QA Logo" className="h-10 w-auto dark:hidden" />
+                <img src="/logo-white.png" alt="QA Logo" className="h-10 w-auto hidden dark:block" />
                 <span>Tracker</span>
               </Link>
             </div>
