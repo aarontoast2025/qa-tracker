@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Mail, Lock, LogIn, Loader2 } from "lucide-react";
+import { Mail, Lock, LogIn, Loader2, AlertCircle } from "lucide-react";
 
 export function LoginForm({
   className,
@@ -52,9 +52,11 @@ export function LoginForm({
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+          <CardTitle className="text-2xl font-bold">QA Tracker</CardTitle>
           <CardDescription>
-            Enter your credentials to access your account
+            Enter your credentials to access your account. Please contact your{" "}
+            <span className="font-semibold text-foreground">Administrator</span>{" "}
+            for assistance.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -99,7 +101,8 @@ export function LoginForm({
                 </div>
               </div>
               {error && (
-                <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
+                <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
                   {error}
                 </div>
               )}
