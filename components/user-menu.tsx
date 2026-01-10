@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { User, LogOut } from "lucide-react";
+import { CircleUser, LogOut, User } from "lucide-react";
 
 interface UserMenuProps {
   email: string;
@@ -30,7 +30,7 @@ export function UserMenu({ email }: UserMenuProps) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full">
-          <User className="h-5 w-5" />
+          <CircleUser className="h-5 w-5" />
           <span className="sr-only">Open user menu</span>
         </Button>
       </DropdownMenuTrigger>

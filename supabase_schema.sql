@@ -52,7 +52,10 @@ create policy "Users can update their own profile."
 
 -- Create a function to handle new user signups (optional, but good practice to auto-create profile)
 create or replace function public.handle_new_user()
-returns trigger as $$
+returns trigger
+security definer
+set search_path = public
+as $$
 begin
   insert into public.user_profiles (id, program_email)
   values (new.id, new.email);
