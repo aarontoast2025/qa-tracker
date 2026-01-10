@@ -25,16 +25,48 @@ export function UpdatePasswordForm({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    // Supabase automatically processes the hash fragment and creates a session
-    // We just need to wait a moment for it to complete
-    const timer = setTimeout(() => {
-      setIsReady(true);
-    }, 1000);
+    const initializeSession = async () => {
+      const supabase = createClient();
+      
+      // Wait for Supabase to process the hash fragment
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Check for session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        setHasSession(true);
+        setIsReady(true);
+      } else {
+        // Listen for auth state changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (session && (event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY')) {
+            setHasSession(true);
+            setIsReady(true);
+            subscription.unsubscribe();
+          }
+        });
+        
+        // Give it more time and check again
+        setTimeout(async () => {
+          const { data: { session: retrySession } } = await supabase.auth.getSession();
+          if (retrySession) {
+            setHasSession(true);
+            setIsReady(true);
+          } else {
+            setError("Unable to verify your invitation link. Please click the link from your email again.");
+            setIsReady(true);
+          }
+          subscription.unsubscribe();
+        }, 2500);
+      }
+    };
 
-    return () => clearTimeout(timer);
+    initializeSession();
   }, []);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -53,14 +85,11 @@ export function UpdatePasswordForm({
         throw new Error("Password must be at least 6 characters long");
       }
 
-      const supabase = createClient();
-      
-      // Check if we have a session
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
+      if (!hasSession) {
         throw new Error("No active session. Please click the invitation link from your email again.");
       }
+
+      const supabase = createClient();
 
       // Update the password
       const { error } = await supabase.auth.updateUser({ password });
