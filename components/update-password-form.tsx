@@ -32,37 +32,51 @@ export function UpdatePasswordForm({
     const initializeSession = async () => {
       const supabase = createClient();
       
-      // Wait for Supabase to process the hash fragment
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Check if we have hash parameters (invitation/recovery link)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const type = hashParams.get('type');
       
-      // Check for session
+      if (accessToken && type === 'recovery') {
+        // We have a recovery token, set the session manually
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          });
+          
+          if (error) {
+            console.error('Error setting session:', error);
+            setError("Unable to verify your invitation link. Please try clicking the link from your email again.");
+            setIsReady(true);
+            return;
+          }
+          
+          if (data.session) {
+            setHasSession(true);
+            setIsReady(true);
+            // Clear the hash from URL for security
+            window.history.replaceState(null, '', window.location.pathname);
+            return;
+          }
+        } catch (err) {
+          console.error('Error processing invitation:', err);
+          setError("Unable to verify your invitation link. Please try clicking the link from your email again.");
+          setIsReady(true);
+          return;
+        }
+      }
+      
+      // If no hash params, check for existing session
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
         setHasSession(true);
         setIsReady(true);
       } else {
-        // Listen for auth state changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if (session && (event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY')) {
-            setHasSession(true);
-            setIsReady(true);
-            subscription.unsubscribe();
-          }
-        });
-        
-        // Give it more time and check again
-        setTimeout(async () => {
-          const { data: { session: retrySession } } = await supabase.auth.getSession();
-          if (retrySession) {
-            setHasSession(true);
-            setIsReady(true);
-          } else {
-            setError("Unable to verify your invitation link. Please click the link from your email again.");
-            setIsReady(true);
-          }
-          subscription.unsubscribe();
-        }, 2500);
+        setError("Unable to verify your invitation link. Please click the link from your email again.");
+        setIsReady(true);
       }
     };
 
