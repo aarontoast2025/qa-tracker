@@ -9,12 +9,15 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = searchParams.get("next") ?? "/";
 
-  if (token_hash && type) {
+  // Handle both token_hash (new format) and token (old format for invitations)
+  const token = token_hash || searchParams.get("token");
+
+  if (token && type) {
     const supabase = await createClient();
 
     const { error } = await supabase.auth.verifyOtp({
       type,
-      token_hash,
+      token_hash: token,
     });
     if (!error) {
       // redirect user to specified redirect URL or root of app
@@ -26,5 +29,5 @@ export async function GET(request: NextRequest) {
   }
 
   // redirect the user to an error page with some instructions
-  redirect(`/auth/error?error=No token hash or type`);
+  redirect(`/auth/error?error=No token hash or type provided`);
 }

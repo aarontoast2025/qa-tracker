@@ -12,7 +12,7 @@ export async function inviteUser(email: string) {
     const origin = headersList.get("origin") || process.env.NEXT_PUBLIC_SITE_URL;
 
     const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${origin}/auth/confirm?next=/auth/update-password`,
+      redirectTo: `${origin}/auth/update-password`,
     });
 
     if (error) {
