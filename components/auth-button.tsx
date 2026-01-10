@@ -6,21 +6,27 @@ import { UserMenu } from "./user-menu";
 export async function AuthButton() {
   const supabase = await createClient();
 
-  // You can also use getUser() which will be slower.
-  const { data } = await supabase.auth.getClaims();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const user = data?.claims;
+  if (!user) {
+    return (
+      <div className="flex gap-2">
+        <Button asChild size="sm" variant={"outline"}>
+          <Link href="/auth/login">Sign in</Link>
+        </Button>
+      </div>
+    );
+  }
 
-  return user ? (
-    <UserMenu email={user.email || ""} />
-  ) : (
-    <div className="flex gap-2">
-      <Button asChild size="sm" variant={"outline"}>
-        <Link href="/auth/login">Sign in</Link>
-      </Button>
-      <Button asChild size="sm" variant={"default"}>
-        <Link href="/auth/sign-up">Sign up</Link>
-      </Button>
-    </div>
-  );
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("first_name")
+    .eq("id", user.id)
+    .single();
+
+  const firstName = profile?.first_name || user.email?.split("@")[0] || "User";
+
+  return <UserMenu email={user.email || ""} firstName={firstName} />;
 }

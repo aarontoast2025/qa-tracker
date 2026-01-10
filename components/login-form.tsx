@@ -13,19 +13,39 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Mail, Lock, LogIn, Loader2, AlertCircle } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { Mail, Lock, LogIn, Loader2, AlertCircle, Info } from "lucide-react";
 
 export function LoginForm({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<"div">) {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginContent className={className} {...props} />
+    </Suspense>
+  );
+}
+
+function LoginContent({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const message = searchParams.get("message");
+    if (message) {
+      setInfoMessage(message);
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +59,6 @@ export function LoginForm({
         password,
       });
       if (error) throw error;
-      // Update this route to redirect to an authenticated route. The user already has an active session.
       router.push("/");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
@@ -69,6 +88,12 @@ export function LoginForm({
         <CardContent>
           <form onSubmit={handleLogin}>
             <div className="flex flex-col gap-6">
+              {infoMessage && (
+                <div className="bg-blue-500/15 text-blue-600 dark:text-blue-400 text-sm p-3 rounded-md flex items-center gap-2">
+                  <Info className="h-4 w-4 shrink-0" />
+                  {infoMessage}
+                </div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -127,14 +152,8 @@ export function LoginForm({
                 )}
               </Button>
             </div>
-            <div className="mt-4 text-center text-sm">
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/auth/sign-up"
-                className="underline underline-offset-4 font-medium text-primary"
-              >
-                Sign up
-              </Link>
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              New here? Contact your admin to request an invite.
             </div>
           </form>
         </CardContent>

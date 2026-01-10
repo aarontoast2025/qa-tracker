@@ -27,6 +27,8 @@ import {
   Lock,
   Save,
   Loader2,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,13 +146,18 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
     <form onSubmit={handleSubmit} className="space-y-8">
       {message && (
         <div
-          className={`p-4 rounded-md ${
+          className={`p-4 rounded-md flex items-center gap-3 ${
             message.type === "success"
               ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
               : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
           }`}
         >
-          {message.text}
+          {message.type === "success" ? (
+            <CheckCircle className="h-5 w-5 shrink-0" />
+          ) : (
+            <AlertCircle className="h-5 w-5 shrink-0" />
+          )}
+          <span className="text-sm font-medium">{message.text}</span>
         </div>
       )}
 
