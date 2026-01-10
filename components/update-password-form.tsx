@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
 import { Lock, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 
@@ -37,40 +37,43 @@ function UpdatePasswordContent({
   const [isLoading, setIsLoading] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     const checkSession = async () => {
       const supabase = createClient();
+      
+      // Listen for auth state changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          setSessionChecked(true);
+        }
+      });
+      
+      // Check current session
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
-        // Try to exchange the token from URL if present
-        const token_hash = searchParams.get("token_hash") || searchParams.get("token");
-        const type = searchParams.get("type");
-        
-        if (token_hash && type) {
-          try {
-            const { error } = await supabase.auth.verifyOtp({
-              token_hash,
-              type: type as any,
-            });
-            
-            if (error) {
-              setError("Invalid or expired invitation link. Please request a new invitation.");
-            }
-          } catch (err) {
-            setError("Failed to verify invitation link.");
+      if (session) {
+        // User is already signed in (invitation link was clicked)
+        setSessionChecked(true);
+      } else {
+        // No session yet, wait a moment for Supabase to process the URL
+        setTimeout(async () => {
+          const { data: { session: retrySession } } = await supabase.auth.getSession();
+          if (retrySession) {
+            setSessionChecked(true);
+          } else {
+            setError("Unable to verify your invitation. Please try clicking the invitation link again.");
           }
-        } else {
-          setError("No valid session found. Please use the invitation link from your email.");
-        }
+        }, 1000);
       }
-      setSessionChecked(true);
+
+      return () => {
+        subscription.unsubscribe();
+      };
     };
 
     checkSession();
-  }, [searchParams]);
+  }, []);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
