@@ -22,18 +22,6 @@ export async function inviteUser(email: string) {
     }
 
     if (data.user) {
-      // Create a profile for the invited user
-      const { error: profileError } = await supabase
-        .from("user_profiles")
-        .insert({
-          id: data.user.id,
-          program_email: email,
-        });
-
-      if (profileError) {
-        console.error("Error creating profile for invited user:", profileError);
-      }
-
       revalidatePath("/user-management");
       
       return {

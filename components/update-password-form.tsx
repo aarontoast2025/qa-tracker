@@ -38,8 +38,8 @@ export function UpdatePasswordForm({
       const refreshToken = hashParams.get('refresh_token');
       const type = hashParams.get('type');
       
-      if (accessToken && type === 'recovery') {
-        // We have a recovery token, set the session manually
+      if (accessToken && (type === 'recovery' || type === 'invite' || type === 'signup')) {
+        // We have a recovery, invite or signup token, set the session manually
         try {
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
