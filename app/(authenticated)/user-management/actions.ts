@@ -7,7 +7,8 @@ export async function inviteUser(email: string) {
   try {
     const supabase = createAdminClient();
 
-    const origin = (await import("next/headers")).headers().get("origin") || process.env.NEXT_PUBLIC_SITE_URL;
+    const headersList = (await import("next/headers")).headers();
+    const origin = (await headersList).get("origin") || process.env.NEXT_PUBLIC_SITE_URL;
 
     const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${origin}/auth/confirm?next=/auth/update-password`,
