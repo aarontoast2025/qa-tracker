@@ -11,14 +11,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { CircleUser, LogOut, User, Users } from "lucide-react";
+import { CircleUser, LogOut, User, Users, Shield } from "lucide-react";
 
 interface UserMenuProps {
   email: string;
   firstName: string;
+  permissions: string[];
 }
 
-export function UserMenu({ email, firstName }: UserMenuProps) {
+export function UserMenu({ email, firstName, permissions }: UserMenuProps) {
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -26,6 +27,9 @@ export function UserMenu({ email, firstName }: UserMenuProps) {
     await supabase.auth.signOut();
     router.push("/auth/login");
   };
+
+  const canAccessUsers = permissions.includes('users.access') || permissions.includes('users.view');
+  const canAccessRoles = permissions.includes('roles.access') || permissions.includes('roles.manage');
 
   return (
     <DropdownMenu>
@@ -46,10 +50,21 @@ export function UserMenu({ email, firstName }: UserMenuProps) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push("/user-management")}>
-          <Users className="mr-2 h-4 w-4" />
-          <span>User Management</span>
-        </DropdownMenuItem>
+        
+        {canAccessUsers && (
+          <DropdownMenuItem onClick={() => router.push("/user-management")}>
+            <Users className="mr-2 h-4 w-4" />
+            <span>User Management</span>
+          </DropdownMenuItem>
+        )}
+        
+        {canAccessRoles && (
+          <DropdownMenuItem onClick={() => router.push("/roles-permissions")}>
+            <Shield className="mr-2 h-4 w-4" />
+            <span>Roles & Permissions</span>
+          </DropdownMenuItem>
+        )}
+        
         <DropdownMenuItem onClick={() => router.push("/profile")}>
           <User className="mr-2 h-4 w-4" />
           <span>Profile</span>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "./ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { UserMenu } from "./user-menu";
+import { getMyPermissions } from "@/lib/supabase/permissions";
 
 export async function AuthButton() {
   const supabase = await createClient();
@@ -20,13 +21,22 @@ export async function AuthButton() {
     );
   }
 
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select("first_name")
-    .eq("id", user.id)
-    .single();
+  const [profileResponse, permissions] = await Promise.all([
+    supabase
+      .from("user_profiles")
+      .select("first_name")
+      .eq("id", user.id)
+      .single(),
+    getMyPermissions()
+  ]);
 
-  const firstName = profile?.first_name || user.email?.split("@")[0] || "User";
+  const firstName = profileResponse.data?.first_name || user.email?.split("@")[0] || "User";
 
-  return <UserMenu email={user.email || ""} firstName={firstName} />;
+  return (
+    <UserMenu 
+      email={user.email || ""} 
+      firstName={firstName} 
+      permissions={permissions} 
+    />
+  );
 }

@@ -24,24 +24,56 @@ export default async function UserManagementPage() {
     return <div>Error loading users. Please ensure SUPABASE_SERVICE_ROLE_KEY is set.</div>;
   }
 
-  // Fetch all profiles
+  // Fetch all profiles with roles and suspension status
   const { data: profiles, error: profileError } = await adminClient
     .from("user_profiles")
-    .select("id, first_name, last_name, program_email");
+    .select("id, first_name, last_name, program_email, is_suspended, user_roles(name)");
 
   if (profileError) {
-    console.error("Error fetching profiles:", profileError);
+    console.error("Error fetching profiles:", JSON.stringify(profileError, null, 2));
+    // Provide an empty array as fallback if fetch fails to avoid crashing the merge logic
+    return <div>Error loading profiles: {profileError.message || "Unknown error"}. Please check if the 'is_suspended' column exists in 'user_profiles' table.</div>;
   }
+
+  const allProfiles = profiles || [];
+
+  // Fetch all roles for the invitation modal
+  const { data: roles } = await adminClient
+    .from("user_roles")
+    .select("id, name")
+    .order("name");
 
   // Merge data
   const mergedUsers: UserManagementData[] = authData.users.map((authUser) => {
-    const profile = profiles?.find((p) => p.id === authUser.id);
+    const profile = allProfiles.find((p) => p.id === authUser.id);
+    
+    // Check if user is suspended first (highest priority)
+    let status: UserManagementData["status"];
+    
+    if (profile?.is_suspended) {
+      status = "suspended";
+    } else if (authUser.last_sign_in_at) {
+      status = "active";
+    } else {
+      status = "invited";
+      // Check for expiration (24 hours) if not yet signed in
+      if (authUser.confirmation_sent_at) {
+        const sentAt = new Date(authUser.confirmation_sent_at).getTime();
+        const now = new Date().getTime();
+        if (now - sentAt > 24 * 60 * 60 * 1000) {
+          status = "expired";
+        }
+      }
+    }
+
     return {
       id: authUser.id,
       email: authUser.email,
       first_name: profile?.first_name || null,
       last_name: profile?.last_name || null,
-      status: authUser.last_sign_in_at ? "active" : "invited",
+      role: (profile?.user_roles as any)?.name || "Viewer",
+      status,
+      is_suspended: profile?.is_suspended || false,
       last_sign_in_at: authUser.last_sign_in_at || null,
       created_at: authUser.created_at,
     };
@@ -51,8 +83,8 @@ export default async function UserManagementPage() {
   mergedUsers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
-    <div className="w-full max-w-5xl mx-auto py-8">
-      <UserManagement initialUsers={mergedUsers} />
+    <div className="w-full max-w-6xl mx-auto py-8 px-4">
+      <UserManagement initialUsers={mergedUsers} roles={roles || []} />
     </div>
   );
 }
