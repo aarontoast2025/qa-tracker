@@ -29,8 +29,8 @@ export function UserMenu({ email }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="rounded-full h-10 w-10 p-0">
-          <CircleUser className="h-10 w-10" />
+        <Button variant="ghost" className="rounded-full h-12 w-12 p-0 [&_svg]:!size-8 focus-visible:ring-0 focus-visible:ring-offset-0">
+          <CircleUser className="h-8 w-8" />
           <span className="sr-only">Open user menu</span>
         </Button>
       </DropdownMenuTrigger>
