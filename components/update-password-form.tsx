@@ -13,21 +13,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { Lock, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export function UpdatePasswordForm({
-  className,
-  ...props
-}: React.ComponentPropsWithoutRef<"div">) {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <UpdatePasswordContent className={className} {...props} />
-    </Suspense>
-  );
-}
-
-function UpdatePasswordContent({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
@@ -35,50 +24,21 @@ function UpdatePasswordContent({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionChecked, setSessionChecked] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const checkSession = async () => {
-      const supabase = createClient();
-      
-      // For password reset flow, we need to wait for the hash to be processed
-      // Supabase automatically exchanges the token in the URL hash
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        // Session established from password reset link
-        setSessionChecked(true);
-      } else {
-        // Listen for auth state changes in case session is still being established
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-            setSessionChecked(true);
-            subscription.unsubscribe();
-          }
-        });
-        
-        // Give it a bit more time
-        setTimeout(async () => {
-          const { data: { session: retrySession } } = await supabase.auth.getSession();
-          if (retrySession) {
-            setSessionChecked(true);
-          } else {
-            setError("Unable to verify your invitation link. Please try clicking the link from your email again.");
-          }
-          subscription.unsubscribe();
-        }, 2000);
-      }
-    };
+    // Supabase automatically processes the hash fragment and creates a session
+    // We just need to wait a moment for it to complete
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 1000);
 
-    checkSession();
+    return () => clearTimeout(timer);
   }, []);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    const supabase = createClient();
     setIsLoading(true);
     setError(null);
 
@@ -93,11 +53,24 @@ function UpdatePasswordContent({
         throw new Error("Password must be at least 6 characters long");
       }
 
+      const supabase = createClient();
+      
+      // Check if we have a session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("No active session. Please click the invitation link from your email again.");
+      }
+
+      // Update the password
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       
-      // Redirect to home page after successful password update
-      router.push("/");
+      // Sign out the user so they can log in with their new password
+      await supabase.auth.signOut();
+      
+      // Redirect to login with success message
+      router.push("/auth/login?message=Password set successfully! Please log in with your new password.");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
@@ -105,10 +78,15 @@ function UpdatePasswordContent({
     }
   };
 
-  if (!sessionChecked) {
+  if (!isReady) {
     return (
       <div className={cn("flex flex-col gap-6", className)} {...props}>
         <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2 font-bold text-2xl mb-4">
+            <img src="/logo-black.png" alt="QA Logo" className="h-12 w-auto dark:hidden" />
+            <img src="/logo-white.png" alt="QA Logo" className="h-12 w-auto hidden dark:block" />
+            <span>Tracker</span>
+          </div>
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Verifying your invitation...</p>
         </div>

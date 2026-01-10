@@ -11,13 +11,10 @@ export async function inviteUser(email: string) {
     const headersList = await headers();
     const origin = headersList.get("origin") || process.env.NEXT_PUBLIC_SITE_URL;
 
-    // Create user with a temporary random password
-    const tempPassword = Math.random().toString(36).slice(-16) + Math.random().toString(36).slice(-16);
-    
-    const { data, error } = await supabase.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true, // Auto-confirm email
+    // Use inviteUserByEmail which sends a proper invitation
+    // The user will NOT be signed in until they set their password
+    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${origin}/auth/update-password`,
     });
 
     if (error) {
@@ -35,16 +32,6 @@ export async function inviteUser(email: string) {
 
       if (profileError) {
         console.error("Error creating profile for invited user:", profileError);
-      }
-
-      // Send password reset email (this is the "invitation")
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${origin}/auth/update-password`,
-      });
-
-      if (resetError) {
-        console.error("Error sending invitation email:", resetError);
-        return { error: "User created but failed to send invitation email." };
       }
 
       revalidatePath("/user-management");
