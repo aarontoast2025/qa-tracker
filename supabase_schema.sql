@@ -37,6 +37,11 @@ create table if not exists public.user_profiles (
 -- Enable Row Level Security (RLS)
 alter table public.user_profiles enable row level security;
 
+-- Drop existing policies to avoid "policy already exists" errors
+drop policy if exists "Users can view their own profile." on public.user_profiles;
+drop policy if exists "Users can insert their own profile." on public.user_profiles;
+drop policy if exists "Users can update their own profile." on public.user_profiles;
+
 -- Create policies
 create policy "Users can view their own profile."
   on public.user_profiles for select
@@ -50,7 +55,7 @@ create policy "Users can update their own profile."
   on public.user_profiles for update
   using ( auth.uid() = id );
 
--- Create a function to handle new user signups (optional, but good practice to auto-create profile)
+-- Create a function to handle new user signups
 create or replace function public.handle_new_user()
 returns trigger
 security definer
@@ -64,6 +69,8 @@ end;
 $$ language plpgsql security definer;
 
 -- Trigger the function every time a user is created
-create or replace trigger on_auth_user_created
+-- Drop the trigger if it exists to ensure we can recreate it cleanly
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();

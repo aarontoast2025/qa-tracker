@@ -30,7 +30,7 @@ export function UserMenu({ email }: UserMenuProps) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full">
-          <CircleUser className="h-5 w-5" />
+          <CircleUser className="h-7 w-7" />
           <span className="sr-only">Open user menu</span>
         </Button>
       </DropdownMenuTrigger>
@@ -44,7 +44,7 @@ export function UserMenu({ email }: UserMenuProps) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push("/protected/profile")}>
+        <DropdownMenuItem onClick={() => router.push("/profile")}>
           <User className="mr-2 h-4 w-4" />
           <span>Profile</span>
         </DropdownMenuItem>
