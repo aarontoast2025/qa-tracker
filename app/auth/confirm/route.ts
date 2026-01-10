@@ -20,6 +20,10 @@ export async function GET(request: NextRequest) {
       token_hash: token,
     });
     if (!error) {
+      // For invitations and password resets, redirect to the update-password page
+      if (type === 'invite' || type === 'recovery') {
+        redirect("/auth/update-password");
+      }
       // redirect user to specified redirect URL or root of app
       redirect(next);
     } else {
