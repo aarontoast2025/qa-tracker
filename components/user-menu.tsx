@@ -30,7 +30,7 @@ export function UserMenu({ email }: UserMenuProps) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full">
-          <CircleUser className="h-7 w-7" />
+          <CircleUser className="h-8 w-8" />
           <span className="sr-only">Open user menu</span>
         </Button>
       </DropdownMenuTrigger>

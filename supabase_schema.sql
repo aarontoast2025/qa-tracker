@@ -45,15 +45,15 @@ drop policy if exists "Users can update their own profile." on public.user_profi
 -- Create policies
 create policy "Users can view their own profile."
   on public.user_profiles for select
-  using ( auth.uid() = id );
+  using ( (select auth.uid()) = id );
 
 create policy "Users can insert their own profile."
   on public.user_profiles for insert
-  with check ( auth.uid() = id );
+  with check ( (select auth.uid()) = id );
 
 create policy "Users can update their own profile."
   on public.user_profiles for update
-  using ( auth.uid() = id );
+  using ( (select auth.uid()) = id );
 
 -- Create a function to handle new user signups
 create or replace function public.handle_new_user()
