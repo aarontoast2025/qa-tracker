@@ -60,13 +60,14 @@ create or replace function public.handle_new_user()
 returns trigger
 security definer
 set search_path = public
+language plpgsql
 as $$
 begin
   insert into public.user_profiles (id, program_email)
   values (new.id, new.email);
   return new;
 end;
-$$ language plpgsql security definer;
+$$;
 
 -- Trigger the function every time a user is created
 -- Drop the trigger if it exists to ensure we can recreate it cleanly
