@@ -42,34 +42,35 @@ function UpdatePasswordContent({
     const checkSession = async () => {
       const supabase = createClient();
       
-      // Listen for auth state changes
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          setSessionChecked(true);
-        }
-      });
+      // For password reset flow, we need to wait for the hash to be processed
+      // Supabase automatically exchanges the token in the URL hash
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Check current session
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
-        // User is already signed in (invitation link was clicked)
+        // Session established from password reset link
         setSessionChecked(true);
       } else {
-        // No session yet, wait a moment for Supabase to process the URL
+        // Listen for auth state changes in case session is still being established
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+            setSessionChecked(true);
+            subscription.unsubscribe();
+          }
+        });
+        
+        // Give it a bit more time
         setTimeout(async () => {
           const { data: { session: retrySession } } = await supabase.auth.getSession();
           if (retrySession) {
             setSessionChecked(true);
           } else {
-            setError("Unable to verify your invitation. Please try clicking the invitation link again.");
+            setError("Unable to verify your invitation link. Please try clicking the link from your email again.");
           }
-        }, 1000);
+          subscription.unsubscribe();
+        }, 2000);
       }
-
-      return () => {
-        subscription.unsubscribe();
-      };
     };
 
     checkSession();
