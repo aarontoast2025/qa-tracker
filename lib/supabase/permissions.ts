@@ -62,14 +62,17 @@ export async function getMyPermissions(): Promise<string[]> {
 
   if (!data?.user_roles) return [];
   
+  // Cast to proper type to access nested properties
+  const userRole = data.user_roles as any;
+  
   // If admin, they might not have explicit permissions in the join table 
   // if we rely on the 'Admin' role logic.
-  if (data.user_roles.name === 'Admin') {
+  if (userRole.name === 'Admin') {
     const { data: allPerms } = await supabase.from('user_permissions').select('code');
     return allPerms?.map(p => p.code) || [];
   }
 
-  const permissions = data.user_roles.user_role_permissions
+  const permissions = userRole.user_role_permissions
     .map((urp: any) => urp.user_permissions.code);
 
   return permissions;
