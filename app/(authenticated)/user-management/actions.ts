@@ -5,33 +5,72 @@ import { revalidatePath } from "next/cache";
 import { hasPermission } from "@/lib/supabase/permissions";
 import { createClient } from "@/lib/supabase/server";
 
+// Helper to prevent non-admins from modifying admins
+async function checkCanModifyUser(targetUserId: string) {
+  const supabase = await createClient();
+  
+  // 1. Check if current user is Admin
+  const { data: isActorAdmin } = await supabase.rpc('has_role', { role_name: 'Admin' });
+  
+  // If actor is admin, they can do anything (subject to permissions checked by caller)
+  if (isActorAdmin) return { allowed: true };
+
+  // 2. Fetch target user's role
+  // Use admin client to ensure we can read the role regardless of RLS
+  const adminClient = createAdminClient();
+  const { data: targetProfile } = await adminClient
+    .from('user_profiles')
+    .select('user_roles(name)')
+    .eq('id', targetUserId)
+    .single();
+    
+  const targetRoleName = (targetProfile?.user_roles as any)?.name;
+  
+  if (targetRoleName === 'Admin') {
+    return { allowed: false, error: "You cannot modify an Administrator account." };
+  }
+  
+  return { allowed: true };
+}
+
 export async function inviteUser(email: string, roleId?: string) {
   try {
     const supabase = createAdminClient();
+    const supabaseServer = await createClient();
 
     const { headers } = await import("next/headers");
     const headersList = await headers();
     let origin = headersList.get("origin");
     
-    // Fallback for origin if not present in headers
     if (!origin) {
       const host = headersList.get("host");
       const protocol = host?.includes("localhost") ? "http" : "https";
       origin = `${protocol}://${host}`;
     }
     
-    // Final fallback to env var
     if (!origin || origin.includes("null")) {
       origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     }
 
-    // Use inviteUserByEmail which sends a proper invitation
-    // Redirect directly to update-password page which handles session establishment client-side
     const redirectUrl = `${origin}/auth/update-password`;
 
     // Check Permission
     const canInvite = await hasPermission('users.invite');
     if (!canInvite) return { error: "You do not have permission to invite users." };
+
+    // Prevent non-admins from inviting users as Admin
+    if (roleId) {
+       const { data: role } = await supabase
+        .from('user_roles')
+        .select('name')
+        .eq('id', roleId)
+        .single();
+        
+       if (role?.name === 'Admin') {
+         const { data: isActorAdmin } = await supabaseServer.rpc('has_role', { role_name: 'Admin' });
+         if (!isActorAdmin) return { error: "Only Administrators can invite new Admins." };
+       }
+    }
 
     const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: redirectUrl,
@@ -42,8 +81,6 @@ export async function inviteUser(email: string, roleId?: string) {
     }
 
     if (data.user) {
-      // If a roleId was provided, update the profile that was created by the trigger
-      // Note: The trigger handle_new_user should have already created a profile.
       if (roleId) {
         const { error: updateError } = await supabase
           .from("user_profiles")
@@ -55,7 +92,6 @@ export async function inviteUser(email: string, roleId?: string) {
         }
       }
 
-      // Fetch the role name for the UI update
       let roleName = "Viewer";
       if (roleId) {
         const { data: roleData } = await supabase
@@ -94,6 +130,10 @@ export async function suspendUser(userId: string, suspend: boolean) {
     const canSuspend = await hasPermission('users.suspend');
     if (!canSuspend) return { error: "You do not have permission to suspend/unsuspend users." };
 
+    // Check Safety (Admin protection)
+    const safety = await checkCanModifyUser(userId);
+    if (!safety.allowed) return { error: safety.error };
+
     const supabase = createAdminClient();
 
     // 1. Update Profile
@@ -104,8 +144,7 @@ export async function suspendUser(userId: string, suspend: boolean) {
 
     if (profileError) return { error: profileError.message };
 
-    // 2. Update Auth (Ban the user so they can't log in)
-    // 'none' or '876000h' (100 years) to ban, '0s' to unban
+    // 2. Update Auth
     const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
       ban_duration: suspend ? "876000h" : "0s",
     });
@@ -125,20 +164,30 @@ export async function resendInvitation(email: string) {
     const canInvite = await hasPermission('users.invite');
     if (!canInvite) return { error: "You do not have permission to invite users." };
 
+    // For resend, we might want to check if the target is admin, but usually pending invites aren't full admins yet.
+    // But if they are invited AS admin, maybe we should protect? 
+    // Since we can't easily get ID from email here without query, and it's less critical (just email), 
+    // we skip strict check or we'd need to lookup user by email first.
+    // Let's lookup user by email to be safe.
     const supabase = createAdminClient();
+    const { data: { users } } = await supabase.auth.admin.listUsers();
+    const targetUser = users.find(u => u.email === email);
     
+    if (targetUser) {
+        const safety = await checkCanModifyUser(targetUser.id);
+        if (!safety.allowed) return { error: safety.error };
+    }
+
     const { headers } = await import("next/headers");
     const headersList = await headers();
     let origin = headersList.get("origin");
     
-    // Fallback for origin if not present in headers
     if (!origin) {
       const host = headersList.get("host");
       const protocol = host?.includes("localhost") ? "http" : "https";
       origin = `${protocol}://${host}`;
     }
     
-    // Final fallback to env var
     if (!origin || origin.includes("null")) {
       origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     }
@@ -206,6 +255,10 @@ export async function updateUserDirectPermissions(userId: string, permissionIds:
     const canManagePermissions = await hasPermission('users.permission');
     if (!canManagePermissions) return { error: "You do not have permission to manage user permissions." };
 
+    // Check Safety
+    const safety = await checkCanModifyUser(userId);
+    if (!safety.allowed) return { error: safety.error };
+
     const supabase = createAdminClient();
     
     // 1. Delete existing direct permissions
@@ -247,6 +300,10 @@ export async function updateUserProfile(userId: string, data: any) {
     if (!isSelf) {
       const canUpdate = await hasPermission('users.update');
       if (!canUpdate) return { error: "You do not have permission to update other users." };
+      
+      // Check Safety only if not self (though Admin updating self is fine)
+      const safety = await checkCanModifyUser(userId);
+      if (!safety.allowed) return { error: safety.error };
     }
 
     const supabase = createAdminClient();
@@ -271,7 +328,26 @@ export async function updateUserAccount(userId: string, email: string, roleId: s
     const canManageAccount = await hasPermission('users.account');
     if (!canManageAccount) return { error: "You do not have permission to manage user accounts." };
 
+    // Check Safety (prevent modifying Admin)
+    const safety = await checkCanModifyUser(userId);
+    if (!safety.allowed) return { error: safety.error };
+    
     const supabase = createAdminClient();
+    const supabaseServer = await createClient();
+
+    // Prevent promoting to Admin if not Admin
+    if (roleId) {
+       const { data: role } = await supabase
+        .from('user_roles')
+        .select('name')
+        .eq('id', roleId)
+        .single();
+        
+       if (role?.name === 'Admin') {
+         const { data: isActorAdmin } = await supabaseServer.rpc('has_role', { role_name: 'Admin' });
+         if (!isActorAdmin) return { error: "Only Administrators can assign the Admin role." };
+       }
+    }
 
     // 1. Update Email in Auth if provided
     if (email) {
@@ -299,24 +375,30 @@ export async function updateUserAccount(userId: string, email: string, roleId: s
 
 export async function sendPasswordReset(email: string) {
   try {
-    // Check Permission - reusing users.account as it controls password reset sending
+    // Check Permission
     const canManageAccount = await hasPermission('users.account');
     if (!canManageAccount) return { error: "You do not have permission to send password resets." };
 
     const supabase = createAdminClient();
     
+    // Safety Check by Email
+    const { data: { users } } = await supabase.auth.admin.listUsers();
+    const targetUser = users.find(u => u.email === email);
+    if (targetUser) {
+        const safety = await checkCanModifyUser(targetUser.id);
+        if (!safety.allowed) return { error: safety.error };
+    }
+
     const { headers } = await import("next/headers");
     const headersList = await headers();
     let origin = headersList.get("origin");
     
-    // Fallback for origin if not present in headers
     if (!origin) {
       const host = headersList.get("host");
       const protocol = host?.includes("localhost") ? "http" : "https";
       origin = `${protocol}://${host}`;
     }
     
-    // Final fallback to env var
     if (!origin || origin.includes("null")) {
       origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     }
@@ -334,3 +416,30 @@ export async function sendPasswordReset(email: string) {
   }
 }
 
+export async function deleteUser(userId: string) {
+  try {
+    // Check Permission
+    const canDelete = await hasPermission('users.delete');
+    if (!canDelete) return { error: "You do not have permission to delete users." };
+
+    // Check Safety (Admin protection)
+    const safety = await checkCanModifyUser(userId);
+    if (!safety.allowed) return { error: safety.error };
+
+    const supabase = createAdminClient();
+
+    // Delete User from Auth
+    const { error } = await supabase.auth.admin.deleteUser(userId);
+
+    if (error) {
+      console.error("Error deleting user:", error);
+      return { error: error.message };
+    }
+
+    revalidatePath("/user-management");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Unexpected error deleting user:", error);
+    return { error: error.message || "An unexpected error occurred." };
+  }
+}

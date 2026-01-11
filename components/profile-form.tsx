@@ -29,6 +29,7 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
+  Shield,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,9 +74,18 @@ export interface UserProfile {
 interface ProfileFormProps {
   initialData: UserProfile | null;
   userId: string;
+  userEmail: string;
+  userRole: string;
+  canUpdateProfile: boolean;
 }
 
-export function ProfileForm({ initialData, userId }: ProfileFormProps) {
+export function ProfileForm({ 
+  initialData, 
+  userId, 
+  userEmail, 
+  userRole, 
+  canUpdateProfile 
+}: ProfileFormProps) {
   const [formData, setFormData] = useState<Partial<UserProfile>>(
     initialData || { id: userId }
   );
@@ -97,14 +107,17 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canUpdateProfile) return;
+
     setLoading(true);
     setMessage(null);
 
     try {
       // Update Profile Data
+      const { user_roles, ...updates } = formData as any; // Exclude user_roles from updates
       const { error: profileError } = await supabase
         .from("user_profiles")
-        .upsert({ ...formData, id: userId, updated_at: new Date().toISOString() });
+        .upsert({ ...updates, id: userId, updated_at: new Date().toISOString() });
 
       if (profileError) throw profileError;
 
@@ -126,21 +139,25 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
     }
   };
 
-  const SaveButton = () => (
-    <div className="flex justify-end mt-4">
-      <Button type="submit" disabled={loading} className="w-full md:w-auto">
-        {loading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
-          </>
-        ) : (
-          <>
-            <Save className="mr-2 h-4 w-4" /> Save Changes
-          </>
-        )}
-      </Button>
-    </div>
-  );
+  const SaveButton = () => {
+    if (!canUpdateProfile) return null;
+    
+    return (
+      <div className="flex justify-end mt-4">
+        <Button type="submit" disabled={loading} className="w-full md:w-auto">
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" /> Save Changes
+            </>
+          )}
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -187,6 +204,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={User}
                 value={formData.first_name || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="middle_name"
@@ -194,6 +212,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={User}
                 value={formData.middle_name || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="last_name"
@@ -201,6 +220,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={User}
                 value={formData.last_name || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="personal_email"
@@ -209,6 +229,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Mail}
                 value={formData.personal_email || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="birthday"
@@ -217,6 +238,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Calendar}
                 value={formData.birthday || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="mobile_number"
@@ -224,6 +246,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Phone}
                 value={formData.mobile_number || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="emergency_number"
@@ -231,6 +254,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Phone}
                 value={formData.emergency_number || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="emergency_person"
@@ -238,6 +262,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Heart}
                 value={formData.emergency_person || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="viber_number"
@@ -245,6 +270,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Phone}
                 value={formData.viber_number || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="home_address"
@@ -253,6 +279,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 value={formData.home_address || ""}
                 onChange={handleInputChange}
                 containerClassName="md:col-span-2 lg:col-span-3"
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="internet_provider"
@@ -260,6 +287,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Wifi}
                 value={formData.internet_provider || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="internet_speed"
@@ -267,6 +295,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Activity}
                 value={formData.internet_speed || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
             </CardContent>
           </Card>
@@ -286,6 +315,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Building}
                 value={formData.company || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="employee_id"
@@ -293,6 +323,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={CreditCard}
                 value={formData.employee_id || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="program"
@@ -300,6 +331,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Briefcase}
                 value={formData.program || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="nt_login"
@@ -307,6 +339,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Key}
                 value={formData.nt_login || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="company_email"
@@ -315,6 +348,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Mail}
                 value={formData.company_email || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="program_email"
@@ -323,6 +357,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Mail}
                 value={formData.program_email || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="zoom_id"
@@ -330,6 +365,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Video}
                 value={formData.zoom_id || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="hire_date"
@@ -338,6 +374,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Calendar}
                 value={formData.hire_date || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="computer_name"
@@ -345,6 +382,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Monitor}
                 value={formData.computer_name || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               
               <div className="grid gap-2">
@@ -356,6 +394,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                   <Select
                     value={formData.computer_type || ""}
                     onValueChange={handleSelectChange}
+                    disabled={!canUpdateProfile}
                   >
                     <SelectTrigger className="pl-9 w-full">
                       <SelectValue placeholder="Select type" />
@@ -374,6 +413,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Network}
                 value={formData.vpn_ip || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="ms_office_license"
@@ -381,6 +421,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={FileText}
                 value={formData.ms_office_license || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="unit_serial_number"
@@ -388,6 +429,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Hash}
                 value={formData.unit_serial_number || ""}
                 onChange={handleInputChange}
+                disabled={!canUpdateProfile}
               />
             </CardContent>
           </Card>
@@ -402,12 +444,29 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
             </CardHeader>
             <CardContent className="grid gap-6 md:grid-cols-2">
               <IconInput
+                id="login_email"
+                label="Login Email Address"
+                value={userEmail}
+                icon={Mail}
+                disabled
+                readOnly
+              />
+              <IconInput
+                id="user_role"
+                label="Role"
+                value={userRole}
+                icon={Shield}
+                disabled
+                readOnly
+              />
+              <IconInput
                 id="password"
                 label="New Password"
                 type="password"
                 icon={Lock}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={!canUpdateProfile}
               />
               <IconInput
                 id="confirm_password"
@@ -416,6 +475,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
                 icon={Lock}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={!canUpdateProfile}
               />
             </CardContent>
           </Card>

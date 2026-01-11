@@ -23,6 +23,7 @@ import {
   Ban,
   UserCheck,
   AlertTriangle,
+  AlertCircle,
   Loader2,
   Mail,
   RefreshCw,
@@ -31,6 +32,7 @@ import {
   Briefcase,
   IdCard,
   Filter,
+  Trash2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -54,7 +56,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { InviteUserModal } from "./invite-user-modal";
 import { UserDetailsModal } from "./user-details-modal";
-import { suspendUser, resendInvitation } from "@/app/(authenticated)/user-management/actions";
+import { suspendUser, resendInvitation, deleteUser } from "@/app/(authenticated)/user-management/actions";
 
 export interface UserManagementData {
   id: string;
@@ -86,7 +88,9 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [userDetailsUser, setUserDetailsUser] = useState<UserManagementData | null>(null);
   const [suspendingUser, setSuspendingUser] = useState<UserManagementData | null>(null);
+  const [deletingUser, setDeletingUser] = useState<UserManagementData | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
@@ -111,6 +115,7 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
 
   const handleInviteSuccess = (newUser: UserManagementData) => {
     setUsers((prev) => [newUser, ...prev]);
+    setMessage({ type: "success", text: `Invitation sent to ${newUser.email}` });
   };
 
   const handleUserUpdate = (updatedData: Partial<UserManagementData>) => {
@@ -126,6 +131,7 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
     const newSuspendedState = !suspendingUser.is_suspended;
     
     setLoading(userId);
+    setMessage(null);
     const result = await suspendUser(userId, newSuspendedState);
     
     if (!result.error) {
@@ -141,16 +147,38 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
         }
         return u;
       }));
+      setMessage({ type: "success", text: `User ${newSuspendedState ? 'suspended' : 'unsuspended'} successfully.` });
+    } else {
+      setMessage({ type: "error", text: result.error });
     }
     
     setLoading(null);
     setSuspendingUser(null);
   };
 
+  const handleDeleteUser = async () => {
+    if (!deletingUser) return;
+    
+    setLoading(deletingUser.id);
+    setMessage(null);
+    const result = await deleteUser(deletingUser.id);
+    
+    if (!result.error) {
+      setUsers(prev => prev.filter(u => u.id !== deletingUser.id));
+      setMessage({ type: "success", text: "User removed successfully." });
+    } else {
+      setMessage({ type: "error", text: result.error });
+    }
+    
+    setLoading(null);
+    setDeletingUser(null);
+  };
+
   const handleResendInvite = async (user: UserManagementData) => {
     if (!user.email) return;
     
     setLoading(user.id);
+    setMessage(null);
     const result = await resendInvitation(user.email);
     
     if (!result.error) {
@@ -158,6 +186,9 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
       setUsers(prev => prev.map(u => 
         u.id === user.id ? { ...u, status: "invited" as const } : u
       ));
+      setMessage({ type: "success", text: "Invitation resent successfully." });
+    } else {
+      setMessage({ type: "error", text: result.error });
     }
     setLoading(null);
   };
@@ -178,6 +209,28 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
           </Button>
         )}
       </div>
+
+      {message && (
+        <div
+          className={`p-4 rounded-md flex items-center justify-between gap-3 ${
+            message.type === "success"
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            {message.type === "success" ? (
+              <CheckCircle className="h-5 w-5 shrink-0" />
+            ) : (
+              <AlertCircle className="h-5 w-5 shrink-0" />
+            )}
+            <span className="text-sm font-medium">{message.text}</span>
+          </div>
+          <button onClick={() => setMessage(null)} className="text-current opacity-70 hover:opacity-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       <Card className="border-t-4 border-t-primary shadow-sm w-full">
         <CardHeader>
@@ -368,9 +421,12 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
                                 </DropdownMenuItem>
                               )}
                               
-                              {currentUserPermissions.includes('users.suspend') && (
-                                <DropdownMenuItem className="text-red-600 dark:text-red-400 gap-2">
-                                  <X className="h-3.5 w-3.5" /> Remove User
+                              {currentUserPermissions.includes('users.delete') && (
+                                <DropdownMenuItem 
+                                  className="text-red-600 dark:text-red-400 gap-2"
+                                  onClick={() => setDeletingUser(user)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" /> Remove User
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>
@@ -461,54 +517,58 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
         </AlertDialogContent>
       </AlertDialog>
 
-            <InviteUserModal 
+      {/* Delete Confirmation Modal */}
+      <AlertDialog 
+        open={!!deletingUser} 
+        onOpenChange={(open) => !open && setDeletingUser(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Remove User: {deletingUser?.email}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-2">
+                <p>
+                  Are you sure you want to permanently remove this user?
+                </p>
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 rounded-md text-sm border border-red-200 dark:border-red-800">
+                  <strong>Critical Warning:</strong> This action will remove the user and all their related data. This operation cannot be undone and data cannot be retrieved. If necessary, it is recommended to backup important data before proceeding.
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="gap-2">
+              <X className="h-4 w-4" /> Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteUser}
+              className="gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              <Trash2 className="h-4 w-4" /> Delete User
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-              isOpen={isInviteModalOpen}
+      <InviteUserModal 
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        roles={roles}
+        onSuccess={handleInviteSuccess}
+      />
 
-              onClose={() => setIsInviteModalOpen(false)}
-
-              roles={roles}
-
-              onSuccess={handleInviteSuccess}
-
-            />
-
-      
-
-                                    <UserDetailsModal 
-
-      
-
-                                      isOpen={!!userDetailsUser}
-
-      
-
-                                      onClose={() => setUserDetailsUser(null)}
-
-      
-
-                                      userId={userDetailsUser?.id || null}
-
-      
-
-                                      email={userDetailsUser?.email}
-
-      
-
-                                      roles={roles}
-
-      
-
-                                      onUpdate={handleUserUpdate}
-
-                                      currentUserPermissions={currentUserPermissions}
-
-                                    />
-
-          </div>
-
-        );
-
-      }
-
-      
+      <UserDetailsModal 
+        isOpen={!!userDetailsUser}
+        onClose={() => setUserDetailsUser(null)}
+        userId={userDetailsUser?.id || null}
+        email={userDetailsUser?.email}
+        roles={roles}
+        onUpdate={handleUserUpdate}
+        currentUserPermissions={currentUserPermissions}
+      />
+    </div>
+  );
+}

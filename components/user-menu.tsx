@@ -65,10 +65,12 @@ export function UserMenu({ email, firstName, permissions }: UserMenuProps) {
           </DropdownMenuItem>
         )}
         
-        <DropdownMenuItem onClick={() => router.push("/profile")}>
-          <User className="mr-2 h-4 w-4" />
-          <span>Profile</span>
-        </DropdownMenuItem>
+        {permissions.includes('profile.view') && (
+          <DropdownMenuItem onClick={() => router.push("/profile")}>
+            <User className="mr-2 h-4 w-4" />
+            <span>Profile</span>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
