@@ -152,7 +152,68 @@ export async function getUserDetails(userId: string) {
       .single();
 
     if (error) return { error: error.message };
-    return { profile };
+
+    // Fetch Direct Permissions
+    const { data: directPerms, error: directError } = await supabase
+      .from("user_direct_permissions")
+      .select("permission_id")
+      .eq("user_id", userId);
+    
+    if (directError) return { error: directError.message };
+
+    // Fetch All Permissions
+    const { data: allPerms, error: allError } = await supabase
+      .from("user_permissions")
+      .select("*");
+
+    if (allError) return { error: allError.message };
+
+    // Fetch All Role Permissions
+    const { data: rolePerms, error: roleError } = await supabase
+      .from("user_role_permissions")
+      .select("role_id, permission_id");
+
+    if (roleError) return { error: roleError.message };
+
+    return { 
+      profile, 
+      directPermissions: directPerms.map((p: any) => p.permission_id),
+      allPermissions: allPerms,
+      rolePermissions: rolePerms
+    };
+  } catch (error: any) {
+    return { error: error.message || "An unexpected error occurred." };
+  }
+}
+
+export async function updateUserDirectPermissions(userId: string, permissionIds: string[]) {
+  try {
+    const supabase = createAdminClient();
+    
+    // 1. Delete existing direct permissions
+    const { error: deleteError } = await supabase
+      .from("user_direct_permissions")
+      .delete()
+      .eq("user_id", userId);
+
+    if (deleteError) return { error: deleteError.message };
+
+    // 2. Insert new permissions
+    if (permissionIds.length > 0) {
+      const { error: insertError } = await supabase
+        .from("user_direct_permissions")
+        .insert(
+          permissionIds.map(permId => ({
+            user_id: userId,
+            permission_id: permId
+          }))
+        );
+
+      if (insertError) return { error: insertError.message };
+    }
+
+    revalidatePath("/user-management");
+    return { success: true };
   } catch (error: any) {
     return { error: error.message || "An unexpected error occurred." };
   }

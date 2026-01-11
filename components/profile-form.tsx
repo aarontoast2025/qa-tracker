@@ -175,7 +175,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
         </TabsList>
 
         <TabsContent value="personal">
-          <Card>
+          <Card className="border-t-4 border-t-primary shadow-sm">
             <CardHeader>
               <CardTitle>Personal Details</CardTitle>
               <CardDescription>Update your personal information.</CardDescription>
@@ -274,7 +274,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
         </TabsContent>
 
         <TabsContent value="employment">
-          <Card>
+          <Card className="border-t-4 border-t-primary shadow-sm">
             <CardHeader>
               <CardTitle>Employment Details</CardTitle>
               <CardDescription>Manage your work-related details.</CardDescription>
@@ -395,7 +395,7 @@ export function ProfileForm({ initialData, userId }: ProfileFormProps) {
         </TabsContent>
 
         <TabsContent value="security">
-          <Card>
+          <Card className="border-t-4 border-t-primary shadow-sm">
             <CardHeader>
               <CardTitle>Security</CardTitle>
               <CardDescription>Update your password.</CardDescription>

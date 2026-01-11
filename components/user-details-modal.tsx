@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IconInput } from "@/components/icon-input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import {
   User,
   Mail,
@@ -40,6 +42,8 @@ import {
   X,
   Settings,
   Shield,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -52,7 +56,7 @@ import {
 } from "@/components/ui/select";
 import { UserProfile } from "./profile-form";
 import { UserManagementData } from "./user-management";
-import { getUserDetails, sendPasswordReset, updateUserProfile, updateUserAccount } from "@/app/(authenticated)/user-management/actions";
+import { getUserDetails, sendPasswordReset, updateUserProfile, updateUserAccount, updateUserDirectPermissions } from "@/app/(authenticated)/user-management/actions";
 
 interface UserDetailsModalProps {
   userId: string | null;
@@ -61,6 +65,14 @@ interface UserDetailsModalProps {
   onClose: () => void;
   roles: { id: string; name: string }[];
   onUpdate?: (updatedData: Partial<UserManagementData>) => void;
+}
+
+interface Permission {
+  id: string;
+  name: string;
+  code: string;
+  group_name: string;
+  description: string;
 }
 
 export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpdate }: UserDetailsModalProps) {
@@ -73,16 +85,26 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
 
+  // Permission State
+  const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
+  const [rolePermissionsMap, setRolePermissionsMap] = useState<Record<string, string[]>>({});
+  const [directPermissions, setDirectPermissions] = useState<string[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     if (isOpen && userId) {
       fetchUserDetails(userId);
       setAccountEmail(email || "");
+      setExpandedGroups({});
     } else {
       setProfile(null);
       setFormData({});
       setMessage(null);
       setAccountEmail("");
       setAccountRoleId("");
+      setAllPermissions([]);
+      setRolePermissionsMap({});
+      setDirectPermissions([]);
     }
   }, [isOpen, userId, email]);
 
@@ -93,6 +115,18 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
       setProfile(result.profile);
       setFormData(result.profile);
       setAccountRoleId(result.profile.role_id || "");
+
+      // Permissions Data
+      setAllPermissions(result.allPermissions || []);
+      setDirectPermissions(result.directPermissions || []);
+      
+      const roleMap: Record<string, string[]> = {};
+      (result.rolePermissions || []).forEach((rp: any) => {
+        if (!roleMap[rp.role_id]) roleMap[rp.role_id] = [];
+        roleMap[rp.role_id].push(rp.permission_id);
+      });
+      setRolePermissionsMap(roleMap);
+
     } else if (result.error) {
       setMessage({ type: "error", text: result.error });
     }
@@ -122,8 +156,13 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
         }
       }
 
-      // 2. Update Profile Data
-      // Create a copy of formData and remove fields that shouldn't be updated via this action
+      // 2. Update Direct Permissions
+      const permResult = await updateUserDirectPermissions(userId, directPermissions);
+      if (permResult.error) {
+        throw new Error(permResult.error);
+      }
+
+      // 3. Update Profile Data
       const { id: _, created_at, role_id, ...updateData } = formData as any;
       const profileResult = await updateUserProfile(userId, updateData);
       
@@ -164,6 +203,35 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
     }
     setResetLoading(false);
   };
+
+  // Permission Logic
+  const currentRolePermissions = useMemo(() => {
+    return rolePermissionsMap[accountRoleId] || [];
+  }, [accountRoleId, rolePermissionsMap]);
+
+  const toggleGroup = (group: string) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [group]: !prev[group],
+    }));
+  };
+
+  const handleTogglePermission = (id: string) => {
+    // Cannot toggle if it's inherited from role
+    if (currentRolePermissions.includes(id)) return;
+
+    setDirectPermissions((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+  };
+
+  const groupedPermissions = useMemo(() => {
+    return allPermissions.reduce((acc: Record<string, Permission[]>, curr) => {
+      if (!acc[curr.group_name]) acc[curr.group_name] = [];
+      acc[curr.group_name].push(curr);
+      return acc;
+    }, {});
+  }, [allPermissions]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -439,12 +507,13 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                   <CardHeader>
                     <CardTitle>Account Settings</CardTitle>
                     <CardDescription>
-                      Update user's login credentials and system role.
+                      Update user's login credentials and granular permissions.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-6">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
+                    {/* Top Row: Email, Role, Reset */}
+                    <div className="flex flex-col md:flex-row gap-4 md:items-end">
+                      <div className="flex-1 space-y-2">
                         <Label htmlFor="account_email">Login Email Address</Label>
                         <div className="relative">
                           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -457,7 +526,8 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                           />
                         </div>
                       </div>
-                      <div className="space-y-2">
+                      
+                      <div className="flex-1 space-y-2">
                         <Label htmlFor="account_role">System Role</Label>
                         <div className="relative">
                           <Shield className="absolute left-3 top-3 h-4 w-4 text-muted-foreground z-10" />
@@ -478,32 +548,99 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                           </Select>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="border-t pt-6">
-                      <div className="flex flex-col items-center justify-center py-4 gap-4 text-center">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Lock className="h-6 w-6 text-primary" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-medium">Password Management</p>
-                          <p className="text-sm text-muted-foreground max-w-xs">
-                            Send a password reset link to the user's login email.
-                          </p>
-                        </div>
-                        <Button 
+                      <div className="md:pb-0">
+                         <Button 
                           onClick={handleSendResetLink} 
                           disabled={resetLoading}
                           variant="secondary"
-                          className="gap-2"
+                          className="w-full md:w-auto gap-2"
                         >
                           {resetLoading ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <Send className="h-4 w-4" />
                           )}
-                          Send Password Reset Link
+                          Send Password Reset
                         </Button>
+                      </div>
+                    </div>
+
+                    {/* Permissions Section */}
+                    <div className="space-y-4 border-t pt-4">
+                      <h3 className="font-medium flex items-center gap-2">
+                        <Shield className="h-4 w-4" /> Special Permissions
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Customize permissions for this specific user. Permissions inherited from the selected role are checked and disabled.
+                      </p>
+
+                      <div className="space-y-2">
+                        {Object.entries(groupedPermissions).map(([group, perms]) => (
+                          <div key={group} className="border rounded-md overflow-hidden bg-card">
+                            <button
+                              className="w-full flex items-center justify-between p-3 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                              onClick={() => toggleGroup(group)}
+                            >
+                              <div className="flex items-center gap-2">
+                                {expandedGroups[group] ? (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                )}
+                                <span className="font-bold text-sm">{group}</span>
+                                <Badge variant="secondary" className="h-4 px-1 text-[9px] font-normal">
+                                  {perms.length}
+                                </Badge>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                {perms.filter(p => currentRolePermissions.includes(p.id) || directPermissions.includes(p.id)).length} active
+                              </div>
+                            </button>
+                            
+                            {expandedGroups[group] && (
+                              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                                {perms.map((permission) => {
+                                  const isRolePermission = currentRolePermissions.includes(permission.id);
+                                  const isDirectPermission = directPermissions.includes(permission.id);
+                                  const isChecked = isRolePermission || isDirectPermission;
+                                  
+                                  return (
+                                    <div
+                                      key={permission.id}
+                                      className="flex items-start space-x-3 group"
+                                    >
+                                      <Checkbox
+                                        id={`user-perm-${permission.id}`}
+                                        checked={isChecked}
+                                        disabled={isRolePermission}
+                                        onCheckedChange={() => handleTogglePermission(permission.id)}
+                                        className="mt-0.5"
+                                      />
+                                      <div className="grid gap-1 leading-tight">
+                                        <label
+                                          htmlFor={`user-perm-${permission.id}`}
+                                          className={`text-sm font-medium ${isRolePermission ? "text-muted-foreground cursor-not-allowed" : "cursor-pointer group-hover:text-primary"} transition-colors`}
+                                        >
+                                          {permission.name}
+                                          {isRolePermission && (
+                                            <span className="ml-2 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Role</span>
+                                          )}
+                                          {isDirectPermission && !isRolePermission && (
+                                            <span className="ml-2 text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">Direct</span>
+                                          )}
+                                        </label>
+                                        <p className="text-[10px] text-muted-foreground font-mono">
+                                          {permission.code}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </CardContent>

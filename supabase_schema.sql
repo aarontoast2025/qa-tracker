@@ -28,6 +28,14 @@ create table if not exists public.user_role_permissions (
   primary key (role_id, permission_id)
 );
 
+-- 3.5. Create user_direct_permissions table for granular user overrides
+create table if not exists public.user_direct_permissions (
+  user_id uuid references public.user_profiles(id) on delete cascade not null,
+  permission_id uuid references public.user_permissions(id) on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  primary key (user_id, permission_id)
+);
+
 -- 4. Create or Update user_profiles table
 create table if not exists public.user_profiles (
   id uuid references auth.users(id) on delete cascade not null primary key,
@@ -186,6 +194,28 @@ create policy "Admins can update role permissions"
 
 create policy "Admins can delete role permissions"
   on public.user_role_permissions for delete
+  using ( public.has_role('Admin') );
+
+-- User Direct Permissions Policies
+drop policy if exists "User direct permissions access policy" on public.user_direct_permissions;
+drop policy if exists "Admins can insert direct permissions" on public.user_direct_permissions;
+drop policy if exists "Admins can update direct permissions" on public.user_direct_permissions;
+drop policy if exists "Admins can delete direct permissions" on public.user_direct_permissions;
+
+create policy "User direct permissions access policy"
+  on public.user_direct_permissions for select
+  using ( (select auth.role()) = 'authenticated' );
+
+create policy "Admins can insert direct permissions"
+  on public.user_direct_permissions for insert
+  with check ( public.has_role('Admin') );
+
+create policy "Admins can update direct permissions"
+  on public.user_direct_permissions for update
+  using ( public.has_role('Admin') );
+
+create policy "Admins can delete direct permissions"
+  on public.user_direct_permissions for delete
   using ( public.has_role('Admin') );
 
 -- User Profiles Policies (Consolidated to prevent recursion and multiple permissive policies)
