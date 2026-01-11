@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EditRoleModal } from "./edit-role-modal";
 import { EditRoleDetailsModal } from "./edit-role-details-modal";
+import { RoleMembersModal } from "./role-members-modal";
 
 interface Permission {
   id: string;
@@ -46,8 +47,10 @@ interface RolesListProps {
 export function RolesList({ roles, allPermissions, currentUserPermissions }: RolesListProps) {
   const [editingPermissionsRole, setEditingPermissionsRole] = useState<Role | null>(null);
   const [editingDetailsRole, setEditingDetailsRole] = useState<Role | null>(null);
+  const [viewingMembersRole, setViewingMembersRole] = useState<Role | null>(null);
   const [isPermModalOpen, setIsPermModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
 
   const handleEditPermissions = (role: Role) => {
     setEditingPermissionsRole(role);
@@ -57,6 +60,11 @@ export function RolesList({ roles, allPermissions, currentUserPermissions }: Rol
   const handleEditDetails = (role: Role) => {
     setEditingDetailsRole(role);
     setIsDetailModalOpen(true);
+  };
+
+  const handleViewMembers = (role: Role) => {
+    setViewingMembersRole(role);
+    setIsMembersModalOpen(true);
   };
 
   return (
@@ -113,10 +121,14 @@ export function RolesList({ roles, allPermissions, currentUserPermissions }: Rol
                       <ShieldCheck className="h-3.5 w-3.5" />
                       <span>{role.name === 'Admin' ? 'Unlimited' : (role.user_role_permissions?.length || 0)} Permissions</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+                    <button 
+                      onClick={() => handleViewMembers(role)}
+                      className="flex items-center gap-2 text-xs font-semibold text-primary hover:underline hover:opacity-80 transition-all"
+                      title="View assigned users"
+                    >
                       <Users className="h-3.5 w-3.5" />
                       <span>{userCount} Users</span>
-                    </div>
+                    </button>
                   </div>
                 </div>
               </CardContent>
@@ -149,6 +161,13 @@ export function RolesList({ roles, allPermissions, currentUserPermissions }: Rol
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         currentUserPermissions={currentUserPermissions}
+      />
+
+      <RoleMembersModal
+        isOpen={isMembersModalOpen}
+        onClose={() => setIsMembersModalOpen(false)}
+        roleId={viewingMembersRole?.id || null}
+        roleName={viewingMembersRole?.name || null}
       />
     </>
   );
