@@ -30,6 +30,7 @@ import {
   CheckCircle,
   AlertCircle,
   Shield,
+  Pencil,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,6 +70,7 @@ export interface UserProfile {
   vpn_ip: string | null;
   ms_office_license: string | null;
   unit_serial_number: string | null;
+  avatar_url: string | null;
 }
 
 interface ProfileFormProps {
@@ -92,9 +94,103 @@ export function ProfileForm({
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const router = useRouter();
   const supabase = createClient();
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true);
+      setMessage(null);
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      // --- Image Compression Logic ---
+      const compressedFile = await new Promise<Blob>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+          const img = new Image();
+          img.src = e.target?.result as string;
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const MAX_SIZE = 400; // Resize to max 400px
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > MAX_SIZE) {
+                height *= MAX_SIZE / width;
+                width = MAX_SIZE;
+              }
+            } else {
+              if (height > MAX_SIZE) {
+                width *= MAX_SIZE / height;
+                height = MAX_SIZE;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx?.drawImage(img, 0, 0, width, height);
+            canvas.toBlob((blob) => {
+              if (blob) resolve(blob);
+              else reject(new Error("Compression failed"));
+            }, "image/jpeg", 0.7); // 70% quality
+          };
+        };
+        reader.onerror = reject;
+      });
+
+      // --- Delete Old Avatar from Storage if exists ---
+      if (formData.avatar_url) {
+        try {
+          // Extract path from public URL
+          // URL format is usually: .../storage/v1/object/public/avatars/userId/filename.jpg
+          const urlParts = formData.avatar_url.split('/avatars/');
+          if (urlParts.length > 1) {
+            const oldPath = urlParts[1];
+            await supabase.storage.from('avatars').remove([oldPath]);
+          }
+        } catch (error) {
+          console.error("Error deleting old avatar:", error);
+          // Continue anyway to upload new one
+        }
+      }
+
+      const fileName = `${userId}/${Math.random()}.jpg`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, compressedFile, {
+          contentType: 'image/jpeg',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+
+      setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
+      setMessage({ type: "success", text: "Avatar updated successfully!" });
+      router.refresh();
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to upload avatar." });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -113,15 +209,13 @@ export function ProfileForm({
     setMessage(null);
 
     try {
-      // Update Profile Data
-      const { user_roles, ...updates } = formData as any; // Exclude user_roles from updates
+      const { user_roles, ...updates } = formData as any;
       const { error: profileError } = await supabase
         .from("user_profiles")
         .upsert({ ...updates, id: userId, updated_at: new Date().toISOString() });
 
       if (profileError) throw profileError;
 
-      // Update Password if provided
       if (password) {
         if (password !== confirmPassword) {
           throw new Error("Passwords do not match.");
@@ -159,329 +253,362 @@ export function ProfileForm({
     );
   };
 
+  const initials = `${formData.first_name?.[0] || ""}${formData.last_name?.[0] || ""}`.toUpperCase() || userEmail[0].toUpperCase();
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      {message && (
-        <div
-          className={`p-4 rounded-md flex items-center gap-3 ${
-            message.type === "success"
-              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-          }`}
-        >
-          {message.type === "success" ? (
-            <CheckCircle className="h-5 w-5 shrink-0" />
-          ) : (
-            <AlertCircle className="h-5 w-5 shrink-0" />
-          )}
-          <span className="text-sm font-medium">{message.text}</span>
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
+        <div className="relative group">
+          <div className="h-24 w-24 rounded-full border-4 border-background shadow-xl overflow-hidden bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary">
+            {formData.avatar_url ? (
+              <img src={formData.avatar_url} alt="Profile" className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
+            
+            {canUpdateProfile && (
+              <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-full">
+                <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={uploading} />
+                {uploading ? (
+                  <Loader2 className="h-8 w-8 text-white animate-spin" />
+                ) : (
+                  <Pencil className="h-8 w-8 text-white" />
+                )}
+              </label>
+            )}
+          </div>
         </div>
-      )}
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
+          <p className="text-muted-foreground">
+            Manage your personal and employment details.
+          </p>
+        </div>
+      </div>
 
-      <Tabs defaultValue="personal" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="personal" className="flex items-center gap-2">
-            <User className="w-4 h-4" /> Personal
-          </TabsTrigger>
-          <TabsTrigger value="employment" className="flex items-center gap-2">
-            <Briefcase className="w-4 h-4" /> Employment
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
-            <Lock className="w-4 h-4" /> Security
-          </TabsTrigger>
-        </TabsList>
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {message && (
+          <div
+            className={`p-4 rounded-md flex items-center gap-3 ${
+              message.type === "success"
+                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+            }`}
+          >
+            {message.type === "success" ? (
+              <CheckCircle className="h-5 w-5 shrink-0" />
+            ) : (
+              <AlertCircle className="h-5 w-5 shrink-0" />
+            )}
+            <span className="text-sm font-medium">{message.text}</span>
+          </div>
+        )}
 
-        <TabsContent value="personal">
-          <Card className="border-t-4 border-t-primary shadow-sm">
-            <CardHeader>
-              <CardTitle>Personal Details</CardTitle>
-              <CardDescription>Update your personal information.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <IconInput
-                id="first_name"
-                label="First Name"
-                icon={User}
-                value={formData.first_name || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="middle_name"
-                label="Middle Name"
-                icon={User}
-                value={formData.middle_name || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="last_name"
-                label="Last Name"
-                icon={User}
-                value={formData.last_name || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="personal_email"
-                label="Personal Email Address"
-                type="email"
-                icon={Mail}
-                value={formData.personal_email || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="birthday"
-                label="Birthday"
-                type="date"
-                icon={Calendar}
-                value={formData.birthday || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="mobile_number"
-                label="Mobile Number"
-                icon={Phone}
-                value={formData.mobile_number || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="emergency_number"
-                label="Emergency Number"
-                icon={Phone}
-                value={formData.emergency_number || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="emergency_person"
-                label="Emergency Person"
-                icon={Heart}
-                value={formData.emergency_person || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="viber_number"
-                label="Viber Number"
-                icon={Phone}
-                value={formData.viber_number || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="home_address"
-                label="Home Address"
-                icon={Home}
-                value={formData.home_address || ""}
-                onChange={handleInputChange}
-                containerClassName="md:col-span-2 lg:col-span-3"
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="internet_provider"
-                label="Internet Provider"
-                icon={Wifi}
-                value={formData.internet_provider || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="internet_speed"
-                label="Internet Speed"
-                icon={Activity}
-                value={formData.internet_speed || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-            </CardContent>
-          </Card>
-          <SaveButton />
-        </TabsContent>
+        <Tabs defaultValue="personal" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="personal" className="flex items-center gap-2">
+              <User className="w-4 h-4" /> Personal
+            </TabsTrigger>
+            <TabsTrigger value="employment" className="flex items-center gap-2">
+              <Briefcase className="w-4 h-4" /> Employment
+            </TabsTrigger>
+            <TabsTrigger value="security" className="flex items-center gap-2">
+              <Lock className="w-4 h-4" /> Security
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="employment">
-          <Card className="border-t-4 border-t-primary shadow-sm">
-            <CardHeader>
-              <CardTitle>Employment Details</CardTitle>
-              <CardDescription>Manage your work-related details.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <IconInput
-                id="company"
-                label="Company"
-                icon={Building}
-                value={formData.company || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="employee_id"
-                label="Employee ID"
-                icon={CreditCard}
-                value={formData.employee_id || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="program"
-                label="Program"
-                icon={Briefcase}
-                value={formData.program || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="nt_login"
-                label="NT Login"
-                icon={Key}
-                value={formData.nt_login || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="company_email"
-                label="Company Email Address"
-                type="email"
-                icon={Mail}
-                value={formData.company_email || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="program_email"
-                label="Program Email Address"
-                type="email"
-                icon={Mail}
-                value={formData.program_email || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="zoom_id"
-                label="Zoom ID"
-                icon={Video}
-                value={formData.zoom_id || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="hire_date"
-                label="Hire Date"
-                type="date"
-                icon={Calendar}
-                value={formData.hire_date || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="computer_name"
-                label="Computer Name"
-                icon={Monitor}
-                value={formData.computer_name || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              
-              <div className="grid gap-2">
-                <Label htmlFor="computer_type">Computer Type</Label>
-                <div className="relative">
-                  <div className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground z-10">
-                    <Laptop className="h-4 w-4" />
+          <TabsContent value="personal">
+            <Card className="border-t-4 border-t-primary shadow-sm">
+              <CardHeader>
+                <CardTitle>Personal Details</CardTitle>
+                <CardDescription>Update your personal information.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <IconInput
+                  id="first_name"
+                  label="First Name"
+                  icon={User}
+                  value={formData.first_name || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="middle_name"
+                  label="Middle Name"
+                  icon={User}
+                  value={formData.middle_name || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="last_name"
+                  label="Last Name"
+                  icon={User}
+                  value={formData.last_name || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="personal_email"
+                  label="Personal Email Address"
+                  type="email"
+                  icon={Mail}
+                  value={formData.personal_email || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="birthday"
+                  label="Birthday"
+                  type="date"
+                  icon={Calendar}
+                  value={formData.birthday || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="mobile_number"
+                  label="Mobile Number"
+                  icon={Phone}
+                  value={formData.mobile_number || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="emergency_number"
+                  label="Emergency Number"
+                  icon={Phone}
+                  value={formData.emergency_number || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="emergency_person"
+                  label="Emergency Person"
+                  icon={Heart}
+                  value={formData.emergency_person || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="viber_number"
+                  label="Viber Number"
+                  icon={Phone}
+                  value={formData.viber_number || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="home_address"
+                  label="Home Address"
+                  icon={Home}
+                  value={formData.home_address || ""}
+                  onChange={handleInputChange}
+                  containerClassName="md:col-span-2 lg:col-span-3"
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="internet_provider"
+                  label="Internet Provider"
+                  icon={Wifi}
+                  value={formData.internet_provider || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="internet_speed"
+                  label="Internet Speed"
+                  icon={Activity}
+                  value={formData.internet_speed || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+              </CardContent>
+            </Card>
+            <SaveButton />
+          </TabsContent>
+
+          <TabsContent value="employment">
+            <Card className="border-t-4 border-t-primary shadow-sm">
+              <CardHeader>
+                <CardTitle>Employment Details</CardTitle>
+                <CardDescription>Manage your work-related details.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <IconInput
+                  id="company"
+                  label="Company"
+                  icon={Building}
+                  value={formData.company || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="employee_id"
+                  label="Employee ID"
+                  icon={CreditCard}
+                  value={formData.employee_id || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="program"
+                  label="Program"
+                  icon={Briefcase}
+                  value={formData.program || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="nt_login"
+                  label="NT Login"
+                  icon={Key}
+                  value={formData.nt_login || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="company_email"
+                  label="Company Email Address"
+                  type="email"
+                  icon={Mail}
+                  value={formData.company_email || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="program_email"
+                  label="Program Email Address"
+                  type="email"
+                  icon={Mail}
+                  value={formData.program_email || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="zoom_id"
+                  label="Zoom ID"
+                  icon={Video}
+                  value={formData.zoom_id || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="hire_date"
+                  label="Hire Date"
+                  type="date"
+                  icon={Calendar}
+                  value={formData.hire_date || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="computer_name"
+                  label="Computer Name"
+                  icon={Monitor}
+                  value={formData.computer_name || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="computer_type">Computer Type</Label>
+                  <div className="relative">
+                    <div className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground z-10">
+                      <Laptop className="h-4 w-4" />
+                    </div>
+                    <Select
+                      value={formData.computer_type || ""}
+                      onValueChange={handleSelectChange}
+                      disabled={!canUpdateProfile}
+                    >
+                      <SelectTrigger className="pl-9 w-full">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Laptop">Laptop</SelectItem>
+                        <SelectItem value="Desktop">Desktop</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Select
-                    value={formData.computer_type || ""}
-                    onValueChange={handleSelectChange}
-                    disabled={!canUpdateProfile}
-                  >
-                    <SelectTrigger className="pl-9 w-full">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Laptop">Laptop</SelectItem>
-                      <SelectItem value="Desktop">Desktop</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
-              </div>
 
-              <IconInput
-                id="vpn_ip"
-                label="VPN IP"
-                icon={Network}
-                value={formData.vpn_ip || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="ms_office_license"
-                label="MS Office License"
-                icon={FileText}
-                value={formData.ms_office_license || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="unit_serial_number"
-                label="Unit Serial Number"
-                icon={Hash}
-                value={formData.unit_serial_number || ""}
-                onChange={handleInputChange}
-                disabled={!canUpdateProfile}
-              />
-            </CardContent>
-          </Card>
-          <SaveButton />
-        </TabsContent>
+                <IconInput
+                  id="vpn_ip"
+                  label="VPN IP"
+                  icon={Network}
+                  value={formData.vpn_ip || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="ms_office_license"
+                  label="MS Office License"
+                  icon={FileText}
+                  value={formData.ms_office_license || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="unit_serial_number"
+                  label="Unit Serial Number"
+                  icon={Hash}
+                  value={formData.unit_serial_number || ""}
+                  onChange={handleInputChange}
+                  disabled={!canUpdateProfile}
+                />
+              </CardContent>
+            </Card>
+            <SaveButton />
+          </TabsContent>
 
-        <TabsContent value="security">
-          <Card className="border-t-4 border-t-primary shadow-sm">
-            <CardHeader>
-              <CardTitle>Security</CardTitle>
-              <CardDescription>Update your password.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-6 md:grid-cols-2">
-              <IconInput
-                id="login_email"
-                label="Login Email Address"
-                value={userEmail}
-                icon={Mail}
-                disabled
-                readOnly
-              />
-              <IconInput
-                id="user_role"
-                label="Role"
-                value={userRole}
-                icon={Shield}
-                disabled
-                readOnly
-              />
-              <IconInput
-                id="password"
-                label="New Password"
-                type="password"
-                icon={Lock}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={!canUpdateProfile}
-              />
-              <IconInput
-                id="confirm_password"
-                label="Confirm Password"
-                type="password"
-                icon={Lock}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={!canUpdateProfile}
-              />
-            </CardContent>
-          </Card>
-          <SaveButton />
-        </TabsContent>
-      </Tabs>
-    </form>
+          <TabsContent value="security">
+            <Card className="border-t-4 border-t-primary shadow-sm">
+              <CardHeader>
+                <CardTitle>Security</CardTitle>
+                <CardDescription>Update your password.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-6 md:grid-cols-2">
+                <IconInput
+                  id="login_email"
+                  label="Login Email Address"
+                  value={userEmail}
+                  icon={Mail}
+                  disabled
+                  readOnly
+                />
+                <IconInput
+                  id="user_role"
+                  label="Role"
+                  value={userRole}
+                  icon={Shield}
+                  disabled
+                  readOnly
+                />
+                <IconInput
+                  id="password"
+                  label="New Password"
+                  type="password"
+                  icon={Lock}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={!canUpdateProfile}
+                />
+                <IconInput
+                  id="confirm_password"
+                  label="Confirm Password"
+                  type="password"
+                  icon={Lock}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={!canUpdateProfile}
+                />
+              </CardContent>
+            </Card>
+            <SaveButton />
+          </TabsContent>
+        </Tabs>
+      </form>
+    </div>
   );
 }

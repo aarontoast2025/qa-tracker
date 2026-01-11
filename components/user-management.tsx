@@ -57,6 +57,7 @@ import {
 import { InviteUserModal } from "./invite-user-modal";
 import { UserDetailsModal } from "./user-details-modal";
 import { suspendUser, resendInvitation, deleteUser } from "@/app/(authenticated)/user-management/actions";
+import { PresenceHeader } from "./presence-header";
 
 export interface UserManagementData {
   id: string;
@@ -68,6 +69,7 @@ export interface UserManagementData {
   mobile_number: string | null;
   company_email: string | null;
   program_email: string | null;
+  avatar_url: string | null;
   role: string;
   status: "active" | "invited" | "expired" | "suspended";
   is_suspended: boolean;
@@ -202,12 +204,15 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
             Manage your organization's users, roles, and invitations.
           </p>
         </div>
-        {currentUserPermissions.includes('users.invite') && (
-          <Button className="gap-2" onClick={() => setIsInviteModalOpen(true)}>
-            <UserPlus className="h-4 w-4" />
-            Invite User
-          </Button>
-        )}
+        <div className="flex items-center gap-4">
+          <PresenceHeader />
+          {currentUserPermissions.includes('users.invite') && (
+            <Button className="gap-2" onClick={() => setIsInviteModalOpen(true)}>
+              <UserPlus className="h-4 w-4" />
+              Invite User
+            </Button>
+          )}
+        </div>
       </div>
 
       {message && (
@@ -316,12 +321,16 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
                       <tr key={user.id} className={`hover:bg-muted/20 transition-colors group ${user.is_suspended ? 'opacity-60' : ''}`}>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
-                            <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-sm border ${
+                            <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-sm border overflow-hidden ${
                               user.is_suspended 
                                 ? 'bg-muted text-muted-foreground border-muted-foreground/20' 
                                 : 'bg-primary/10 text-primary border-primary/20'
                             }`}>
-                              {(user.first_name?.[0] || user.email?.[0] || "?").toUpperCase()}
+                              {user.avatar_url ? (
+                                <img src={user.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
+                              ) : (
+                                (user.first_name?.[0] || user.email?.[0] || "?").toUpperCase()
+                              )}
                             </div>
                             <div className="flex flex-col">
                               <span className="font-semibold text-foreground whitespace-nowrap">

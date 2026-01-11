@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CreateRoleModal } from "./create-role-modal";
+import { PresenceHeader } from "./presence-header";
 
 interface RolesPermissionsHeaderProps {
   currentUserPermissions: string[];
@@ -21,7 +22,8 @@ export function RolesPermissionsHeader({ currentUserPermissions }: RolesPermissi
             Manage system roles and define what users can see and do.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-4">
+          <PresenceHeader />
           {currentUserPermissions.includes('roles.add') && (
             <Button className="gap-2" onClick={() => setIsModalOpen(true)}>
               <ShieldCheck className="h-4 w-4" />

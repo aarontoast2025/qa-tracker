@@ -31,7 +31,7 @@ export default async function UserManagementPage() {
   // Fetch all profiles with roles and suspension status
   const { data: profiles, error: profileError } = await adminClient
     .from("user_profiles")
-    .select("id, first_name, last_name, employee_id, nt_login, mobile_number, company_email, program_email, is_suspended, user_roles(name)");
+    .select("id, first_name, last_name, employee_id, nt_login, mobile_number, company_email, program_email, is_suspended, avatar_url, user_roles(name)");
 
   if (profileError) {
     console.error("Error fetching profiles:", JSON.stringify(profileError, null, 2));
@@ -80,6 +80,7 @@ export default async function UserManagementPage() {
       mobile_number: profile?.mobile_number || null,
       company_email: profile?.company_email || null,
       program_email: profile?.program_email || null,
+      avatar_url: profile?.avatar_url || null,
       role: (profile?.user_roles as any)?.name || "Viewer",
       status,
       is_suspended: profile?.is_suspended || false,
