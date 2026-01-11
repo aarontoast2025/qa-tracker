@@ -76,9 +76,10 @@ export interface UserManagementData {
 interface UserManagementProps {
   initialUsers: UserManagementData[];
   roles: { id: string; name: string }[];
+  currentUserPermissions: string[];
 }
 
-export function UserManagement({ initialUsers, roles }: UserManagementProps) {
+export function UserManagement({ initialUsers, roles, currentUserPermissions }: UserManagementProps) {
   const [users, setUsers] = useState<UserManagementData[]>(initialUsers);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
@@ -170,10 +171,12 @@ export function UserManagement({ initialUsers, roles }: UserManagementProps) {
             Manage your organization's users, roles, and invitations.
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setIsInviteModalOpen(true)}>
-          <UserPlus className="h-4 w-4" />
-          Invite User
-        </Button>
+        {currentUserPermissions.includes('users.invite') && (
+          <Button className="gap-2" onClick={() => setIsInviteModalOpen(true)}>
+            <UserPlus className="h-4 w-4" />
+            Invite User
+          </Button>
+        )}
       </div>
 
       <Card className="border-t-4 border-t-primary shadow-sm w-full">
@@ -342,30 +345,34 @@ export function UserManagement({ initialUsers, roles }: UserManagementProps) {
                                 <Search className="h-3.5 w-3.5" /> View Details
                               </DropdownMenuItem>
                               
-                              {(user.status === "invited" || user.status === "expired") && (
+                              {(user.status === "invited" || user.status === "expired") && currentUserPermissions.includes('users.invite') && (
                                 <DropdownMenuItem className="gap-2" onClick={() => handleResendInvite(user)}>
                                   <RefreshCw className="h-3.5 w-3.5" /> Resend Invite
                                 </DropdownMenuItem>
                               )}
                               
-                              <DropdownMenuItem 
-                                className={`gap-2 ${user.is_suspended ? 'text-green-600' : 'text-orange-600'}`}
-                                onClick={() => setSuspendingUser(user)}
-                              >
-                                {user.is_suspended ? (
-                                  <>
-                                    <UserCheck className="h-3.5 w-3.5" /> Unsuspend User
-                                  </>
-                                ) : (
-                                  <>
-                                    <Ban className="h-3.5 w-3.5" /> Suspend User
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                              
-                              <DropdownMenuItem className="text-red-600 dark:text-red-400 gap-2">
-                                <X className="h-3.5 w-3.5" /> Remove User
-                              </DropdownMenuItem>
+                              {currentUserPermissions.includes('roles.manage') && (
+                                <>
+                                  <DropdownMenuItem 
+                                    className={`gap-2 ${user.is_suspended ? 'text-green-600' : 'text-orange-600'}`}
+                                    onClick={() => setSuspendingUser(user)}
+                                  >
+                                    {user.is_suspended ? (
+                                      <>
+                                        <UserCheck className="h-3.5 w-3.5" /> Unsuspend User
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Ban className="h-3.5 w-3.5" /> Suspend User
+                                      </>
+                                    )}
+                                  </DropdownMenuItem>
+                                  
+                                  <DropdownMenuItem className="text-red-600 dark:text-red-400 gap-2">
+                                    <X className="h-3.5 w-3.5" /> Remove User
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>

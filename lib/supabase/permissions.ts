@@ -14,7 +14,21 @@ export async function hasPermission(permissionCode: string): Promise<boolean> {
   const { data: isAdmin } = await supabase.rpc('has_role', { role_name: 'Admin' });
   if (isAdmin) return true;
 
-  // 2. Check for specific permission
+  // 2. Check for specific permission in user_direct_permissions (Granular override)
+  const { data: hasDirectPerm } = await supabase
+    .from('user_direct_permissions')
+    .select(`
+      user_permissions!inner (
+        code
+      )
+    `)
+    .eq('user_id', user.id)
+    .eq('user_permissions.code', permissionCode)
+    .maybeSingle();
+
+  if (hasDirectPerm) return true;
+
+  // 3. Check for specific permission in roles
   const { data: hasPerm } = await supabase
     .from('user_profiles')
     .select(`
@@ -72,8 +86,21 @@ export async function getMyPermissions(): Promise<string[]> {
     return allPerms?.map(p => p.code) || [];
   }
 
-  const permissions = userRole.user_role_permissions
+  const rolePermissions = userRole.user_role_permissions
     .map((urp: any) => urp.user_permissions.code);
 
-  return permissions;
+  // Fetch direct permissions
+  const { data: directData } = await supabase
+    .from('user_direct_permissions')
+    .select(`
+      user_permissions (
+        code
+      )
+    `)
+    .eq('user_id', user.id);
+    
+  const directPermissions = directData?.map((dp: any) => dp.user_permissions.code) || [];
+
+  // Combine unique permissions
+  return Array.from(new Set([...rolePermissions, ...directPermissions]));
 }

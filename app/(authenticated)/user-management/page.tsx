@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { UserManagement, UserManagementData } from "@/components/user-management";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getMyPermissions } from "@/lib/supabase/permissions";
 
 export default async function UserManagementPage() {
   const supabase = await createClient();
@@ -13,6 +14,9 @@ export default async function UserManagementPage() {
   if (!user) {
     return redirect("/auth/login");
   }
+
+  // Fetch current user's permissions
+  const currentUserPermissions = await getMyPermissions();
 
   const adminClient = createAdminClient();
 
@@ -89,7 +93,11 @@ export default async function UserManagementPage() {
 
   return (
     <div className="w-full">
-      <UserManagement initialUsers={mergedUsers} roles={roles || []} />
+      <UserManagement 
+        initialUsers={mergedUsers} 
+        roles={roles || []} 
+        currentUserPermissions={currentUserPermissions} 
+      />
     </div>
   );
 }
