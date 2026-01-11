@@ -28,8 +28,8 @@ export function UserMenu({ email, firstName, permissions }: UserMenuProps) {
     router.push("/auth/login");
   };
 
-  const canAccessUsers = permissions.includes('users.access') || permissions.includes('users.view');
-  const canAccessRoles = permissions.includes('roles.access') || permissions.includes('roles.manage');
+  const canAccessUsers = permissions.includes('users.view');
+  const canAccessRoles = permissions.includes('roles.view');
 
   return (
     <DropdownMenu>

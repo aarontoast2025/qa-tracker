@@ -368,7 +368,7 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
                                 </DropdownMenuItem>
                               )}
                               
-                              {currentUserPermissions.includes('roles.manage') && (
+                              {currentUserPermissions.includes('users.suspend') && (
                                 <DropdownMenuItem className="text-red-600 dark:text-red-400 gap-2">
                                   <X className="h-3.5 w-3.5" /> Remove User
                                 </DropdownMenuItem>

@@ -37,12 +37,14 @@ interface EditRoleDetailsModalProps {
   role: Role | null;
   isOpen: boolean;
   onClose: () => void;
+  currentUserPermissions: string[];
 }
 
 export function EditRoleDetailsModal({
   role,
   isOpen,
   onClose,
+  currentUserPermissions,
 }: EditRoleDetailsModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -151,15 +153,17 @@ export function EditRoleDetailsModal({
               <X className="h-4 w-4" />
               Cancel
             </Button>
-            <Button 
-              variant="outline" 
-              className="text-destructive hover:bg-destructive hover:text-destructive-foreground gap-2 px-6"
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={loading}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </Button>
+            {currentUserPermissions.includes('roles.delete') && (
+              <Button 
+                variant="outline" 
+                className="text-destructive hover:bg-destructive hover:text-destructive-foreground gap-2 px-6"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={loading}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
+            )}
             <Button onClick={handleSave} disabled={loading} className="gap-2 px-6">
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -5,7 +5,11 @@ import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CreateRoleModal } from "./create-role-modal";
 
-export function RolesPermissionsHeader() {
+interface RolesPermissionsHeaderProps {
+  currentUserPermissions: string[];
+}
+
+export function RolesPermissionsHeader({ currentUserPermissions }: RolesPermissionsHeaderProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -18,10 +22,12 @@ export function RolesPermissionsHeader() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button className="gap-2" onClick={() => setIsModalOpen(true)}>
-            <ShieldCheck className="h-4 w-4" />
-            Create New Role
-          </Button>
+          {currentUserPermissions.includes('roles.add') && (
+            <Button className="gap-2" onClick={() => setIsModalOpen(true)}>
+              <ShieldCheck className="h-4 w-4" />
+              Create New Role
+            </Button>
+          )}
         </div>
       </div>
 

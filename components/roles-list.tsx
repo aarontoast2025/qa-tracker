@@ -40,9 +40,10 @@ interface Role {
 interface RolesListProps {
   roles: Role[];
   allPermissions: Permission[];
+  currentUserPermissions: string[];
 }
 
-export function RolesList({ roles, allPermissions }: RolesListProps) {
+export function RolesList({ roles, allPermissions, currentUserPermissions }: RolesListProps) {
   const [editingPermissionsRole, setEditingPermissionsRole] = useState<Role | null>(null);
   const [editingDetailsRole, setEditingDetailsRole] = useState<Role | null>(null);
   const [isPermModalOpen, setIsPermModalOpen] = useState(false);
@@ -77,15 +78,17 @@ export function RolesList({ roles, allPermissions }: RolesListProps) {
                       Full Access
                     </Badge>
                   ) : (
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full"
-                      onClick={() => handleEditDetails(role)}
-                      title="Edit Role Details"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
+                    currentUserPermissions.includes('roles.update') && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full"
+                        onClick={() => handleEditDetails(role)}
+                        title="Edit Role Details"
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    )
                   )}
                 </div>
                 <CardTitle className="mt-4 flex items-center gap-2">
@@ -118,14 +121,16 @@ export function RolesList({ roles, allPermissions }: RolesListProps) {
                 </div>
               </CardContent>
               <div className="p-6 pt-0 mt-auto">
-                <Button 
-                  variant="outline" 
-                  className="w-full text-xs h-9 gap-2 border hover:bg-primary hover:text-primary-foreground transition-all"
-                  onClick={() => handleEditPermissions(role)}
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  Edit Permissions
-                </Button>
+                {currentUserPermissions.includes('roles.permission') && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full text-xs h-9 gap-2 border hover:bg-primary hover:text-primary-foreground transition-all"
+                    onClick={() => handleEditPermissions(role)}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    Edit Permissions
+                  </Button>
+                )}
               </div>
             </Card>
           );
@@ -143,6 +148,7 @@ export function RolesList({ roles, allPermissions }: RolesListProps) {
         role={editingDetailsRole}
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
+        currentUserPermissions={currentUserPermissions}
       />
     </>
   );

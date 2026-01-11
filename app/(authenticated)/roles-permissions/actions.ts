@@ -2,12 +2,16 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { hasPermission } from "@/lib/supabase/permissions";
 
 export async function updateRolePermissions(
   roleId: string,
   permissionIds: string[]
 ) {
   try {
+    const canManagePerms = await hasPermission('roles.permission');
+    if (!canManagePerms) return { error: "You do not have permission to manage role permissions." };
+
     const supabase = createAdminClient();
 
     // 1. Delete existing permissions for this role
@@ -49,6 +53,9 @@ export async function updateRoleDetails(
   description: string
 ) {
   try {
+    const canUpdate = await hasPermission('roles.update');
+    if (!canUpdate) return { error: "You do not have permission to update roles." };
+
     const supabase = createAdminClient();
 
     const { error } = await supabase
@@ -69,6 +76,9 @@ export async function updateRoleDetails(
 
 export async function createRole(name: string, description: string) {
   try {
+    const canAdd = await hasPermission('roles.add');
+    if (!canAdd) return { error: "You do not have permission to create roles." };
+
     const supabase = createAdminClient();
 
     const { data, error } = await supabase
@@ -90,6 +100,9 @@ export async function createRole(name: string, description: string) {
 
 export async function deleteRole(roleId: string) {
   try {
+    const canDelete = await hasPermission('roles.delete');
+    if (!canDelete) return { error: "You do not have permission to delete roles." };
+
     const supabase = createAdminClient();
 
     // 1. Check if users are assigned to this role
