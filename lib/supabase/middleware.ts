@@ -48,6 +48,24 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Check if user is suspended
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('is_suspended')
+      .eq('id', user.id)
+      .single();
+
+    if (profile?.is_suspended) {
+      // User is suspended, log them out and redirect to login
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/auth/login";
+      url.searchParams.set("message", "Your account has been suspended. Please contact an administrator.");
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (
     request.nextUrl.pathname !== "/" &&
     !user &&

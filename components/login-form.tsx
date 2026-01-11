@@ -54,11 +54,27 @@ function LoginContent({
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) throw error;
+
+      // Check if user is suspended
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('is_suspended')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profile?.is_suspended) {
+          // User is suspended, log them out immediately
+          await supabase.auth.signOut();
+          throw new Error("Your account has been suspended. Please contact an administrator.");
+        }
+      }
+
       router.push("/");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");

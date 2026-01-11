@@ -2,12 +2,17 @@ import { AuthButton } from "@/components/auth-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import Link from "next/link";
 import { Suspense } from "react";
+import { ChatWidget } from "@/components/chat/chat-widget";
+import { SuspensionMonitor } from "@/components/suspension-monitor";
+import { createClient } from "@/lib/supabase/server";
 
-export default function ProtectedLayout({
+export default async function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   return (
     <main className="min-h-screen flex flex-col items-center">
       <div className="flex-1 w-full flex flex-col gap-20 items-center">
@@ -38,6 +43,8 @@ export default function ProtectedLayout({
           <ThemeSwitcher />
         </footer>
       </div>
+      <ChatWidget />
+      {user && <SuspensionMonitor userId={user.id} />}
     </main>
   );
 }
