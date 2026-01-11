@@ -2,6 +2,8 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { hasPermission } from "@/lib/supabase/permissions";
+import { createClient } from "@/lib/supabase/server";
 
 export async function inviteUser(email: string, roleId?: string) {
   try {
@@ -26,6 +28,10 @@ export async function inviteUser(email: string, roleId?: string) {
     // Use inviteUserByEmail which sends a proper invitation
     // Redirect directly to update-password page which handles session establishment client-side
     const redirectUrl = `${origin}/auth/update-password`;
+
+    // Check Permission
+    const canInvite = await hasPermission('users.invite');
+    if (!canInvite) return { error: "You do not have permission to invite users." };
 
     const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: redirectUrl,
@@ -84,6 +90,10 @@ export async function inviteUser(email: string, roleId?: string) {
 
 export async function suspendUser(userId: string, suspend: boolean) {
   try {
+    // Check Permission
+    const canSuspend = await hasPermission('users.suspend');
+    if (!canSuspend) return { error: "You do not have permission to suspend/unsuspend users." };
+
     const supabase = createAdminClient();
 
     // 1. Update Profile
@@ -111,6 +121,10 @@ export async function suspendUser(userId: string, suspend: boolean) {
 
 export async function resendInvitation(email: string) {
   try {
+    // Check Permission
+    const canInvite = await hasPermission('users.invite');
+    if (!canInvite) return { error: "You do not have permission to invite users." };
+
     const supabase = createAdminClient();
     
     const { headers } = await import("next/headers");
@@ -188,6 +202,10 @@ export async function getUserDetails(userId: string) {
 
 export async function updateUserDirectPermissions(userId: string, permissionIds: string[]) {
   try {
+    // Check Permission
+    const canManagePermissions = await hasPermission('users.permission');
+    if (!canManagePermissions) return { error: "You do not have permission to manage user permissions." };
+
     const supabase = createAdminClient();
     
     // 1. Delete existing direct permissions
@@ -221,6 +239,16 @@ export async function updateUserDirectPermissions(userId: string, permissionIds:
 
 export async function updateUserProfile(userId: string, data: any) {
   try {
+    const supabaseServer = await createClient();
+    const { data: { user } } = await supabaseServer.auth.getUser();
+
+    // Allow if updating own profile OR has 'users.update' permission
+    const isSelf = user?.id === userId;
+    if (!isSelf) {
+      const canUpdate = await hasPermission('users.update');
+      if (!canUpdate) return { error: "You do not have permission to update other users." };
+    }
+
     const supabase = createAdminClient();
     
     const { error } = await supabase
@@ -239,6 +267,10 @@ export async function updateUserProfile(userId: string, data: any) {
 
 export async function updateUserAccount(userId: string, email: string, roleId: string) {
   try {
+    // Check Permission
+    const canManageAccount = await hasPermission('users.account');
+    if (!canManageAccount) return { error: "You do not have permission to manage user accounts." };
+
     const supabase = createAdminClient();
 
     // 1. Update Email in Auth if provided
@@ -267,6 +299,10 @@ export async function updateUserAccount(userId: string, email: string, roleId: s
 
 export async function sendPasswordReset(email: string) {
   try {
+    // Check Permission - reusing users.account as it controls password reset sending
+    const canManageAccount = await hasPermission('users.account');
+    if (!canManageAccount) return { error: "You do not have permission to send password resets." };
+
     const supabase = createAdminClient();
     
     const { headers } = await import("next/headers");

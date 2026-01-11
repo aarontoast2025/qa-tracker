@@ -65,6 +65,7 @@ interface UserDetailsModalProps {
   onClose: () => void;
   roles: { id: string; name: string }[];
   onUpdate?: (updatedData: Partial<UserManagementData>) => void;
+  currentUserPermissions: string[];
 }
 
 interface Permission {
@@ -75,7 +76,7 @@ interface Permission {
   description: string;
 }
 
-export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpdate }: UserDetailsModalProps) {
+export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpdate, currentUserPermissions }: UserDetailsModalProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<Partial<UserProfile> | null>(null);
@@ -84,6 +85,11 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
   const [accountRoleId, setAccountRoleId] = useState<string>("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
+
+  // Permission Checks
+  const canUpdateDetails = currentUserPermissions.includes('users.update');
+  const canManageAccount = currentUserPermissions.includes('users.account');
+  const canManagePermissions = currentUserPermissions.includes('users.permission');
 
   // Permission State
   const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
@@ -149,7 +155,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
     
     try {
       // 1. Update Account (Email and Role)
-      if (accountEmail !== email || accountRoleId !== (profile as any)?.role_id) {
+      if (canManageAccount && (accountEmail !== email || accountRoleId !== (profile as any)?.role_id)) {
         const accountResult = await updateUserAccount(userId, accountEmail, accountRoleId);
         if (accountResult.error) {
           throw new Error(accountResult.error);
@@ -157,33 +163,44 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
       }
 
       // 2. Update Direct Permissions
-      const permResult = await updateUserDirectPermissions(userId, directPermissions);
-      if (permResult.error) {
-        throw new Error(permResult.error);
+      if (canManagePermissions) {
+        const permResult = await updateUserDirectPermissions(userId, directPermissions);
+        if (permResult.error) {
+          throw new Error(permResult.error);
+        }
       }
 
       // 3. Update Profile Data
-      const { id: _, created_at, role_id, ...updateData } = formData as any;
-      const profileResult = await updateUserProfile(userId, updateData);
-      
-      if (profileResult.success) {
-        setMessage({ type: "success", text: "User details updated successfully!" });
-        setProfile({ ...profile, ...updateData, role_id: accountRoleId });
+      if (canUpdateDetails) {
+        // Create a copy of formData and remove fields that shouldn't be updated via this action
+        const { id: _, created_at, role_id, ...updateData } = formData as any;
+        const profileResult = await updateUserProfile(userId, updateData);
         
-        // Notify parent component about the update
-        if (onUpdate) {
-          const selectedRole = roles.find(r => r.id === accountRoleId);
-          onUpdate({
-            id: userId,
-            email: accountEmail,
-            first_name: formData.first_name,
-            last_name: formData.last_name,
-            role: selectedRole?.name || "Viewer"
-          });
+        if (!profileResult.success && profileResult.error) {
+          throw new Error(profileResult.error || "Failed to update profile details.");
         }
-      } else {
-        throw new Error(profileResult.error || "Failed to update profile details.");
+        
+        // Update local state if successful
+        if (profileResult.success) {
+          setProfile({ ...profile, ...updateData });
+        }
       }
+
+      // Success message if we got here
+      setMessage({ type: "success", text: "User details updated successfully!" });
+      
+      // Notify parent component about the update
+      if (onUpdate) {
+        const selectedRole = roles.find(r => r.id === accountRoleId);
+        onUpdate({
+          id: userId,
+          email: accountEmail,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          role: selectedRole?.name || "Viewer"
+        });
+      }
+
     } catch (error: any) {
       setMessage({ type: "error", text: error.message || "An unexpected error occurred." });
     } finally {
@@ -217,6 +234,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
   };
 
   const handleTogglePermission = (id: string) => {
+    if (!canManagePermissions) return; // Guard
     // Cannot toggle if it's inherited from role
     if (currentRolePermissions.includes(id)) return;
 
@@ -232,6 +250,8 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
       return acc;
     }, {});
   }, [allPermissions]);
+
+  const hasChanges = true; // Simplified for now, enables button if user has permission
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -288,15 +308,18 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                 <Card className="border-t-4 border-t-primary shadow-sm">
                   <CardHeader>
                     <CardTitle>Personal Details</CardTitle>
-                    <CardDescription>Update the user's personal information.</CardDescription>
+                    <CardDescription>
+                      {canUpdateDetails ? "Update the user's personal information." : "View personal information."}
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <CardContent className={`grid gap-4 md:grid-cols-2 lg:grid-cols-3 ${!canUpdateDetails ? "pointer-events-none opacity-80" : ""}`}>
                     <IconInput
                       id="first_name"
                       label="First Name"
                       icon={User}
                       value={formData.first_name || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="middle_name"
@@ -304,6 +327,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={User}
                       value={formData.middle_name || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="last_name"
@@ -311,6 +335,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={User}
                       value={formData.last_name || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="personal_email"
@@ -319,6 +344,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Mail}
                       value={formData.personal_email || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="birthday"
@@ -327,6 +353,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Calendar}
                       value={formData.birthday || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="mobile_number"
@@ -334,6 +361,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Phone}
                       value={formData.mobile_number || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="emergency_number"
@@ -341,6 +369,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Phone}
                       value={formData.emergency_number || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="emergency_person"
@@ -348,6 +377,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Heart}
                       value={formData.emergency_person || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="viber_number"
@@ -355,6 +385,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Phone}
                       value={formData.viber_number || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="home_address"
@@ -363,6 +394,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       value={formData.home_address || ""}
                       onChange={handleInputChange}
                       containerClassName="md:col-span-2 lg:col-span-3"
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="internet_provider"
@@ -370,6 +402,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Wifi}
                       value={formData.internet_provider || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="internet_speed"
@@ -377,6 +410,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Activity}
                       value={formData.internet_speed || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                   </CardContent>
                 </Card>
@@ -386,15 +420,18 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                 <Card className="border-t-4 border-t-primary shadow-sm">
                   <CardHeader>
                     <CardTitle>Employment Details</CardTitle>
-                    <CardDescription>Manage work-related information for this user.</CardDescription>
+                    <CardDescription>
+                       {canUpdateDetails ? "Manage work-related information for this user." : "View employment details."}
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <CardContent className={`grid gap-4 md:grid-cols-2 lg:grid-cols-3 ${!canUpdateDetails ? "pointer-events-none opacity-80" : ""}`}>
                     <IconInput
                       id="company"
                       label="Company"
                       icon={Building}
                       value={formData.company || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="employee_id"
@@ -402,6 +439,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={CreditCard}
                       value={formData.employee_id || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="program"
@@ -409,6 +447,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Briefcase}
                       value={formData.program || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="nt_login"
@@ -416,6 +455,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Key}
                       value={formData.nt_login || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="company_email"
@@ -424,6 +464,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Mail}
                       value={formData.company_email || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="program_email"
@@ -432,6 +473,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Mail}
                       value={formData.program_email || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="zoom_id"
@@ -439,6 +481,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Video}
                       value={formData.zoom_id || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="hire_date"
@@ -447,6 +490,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Calendar}
                       value={formData.hire_date || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="computer_name"
@@ -454,6 +498,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Monitor}
                       value={formData.computer_name || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     
                     <div className="grid gap-2">
@@ -465,6 +510,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                         <Select
                           value={formData.computer_type || ""}
                           onValueChange={handleSelectChange}
+                          disabled={!canUpdateDetails}
                         >
                           <SelectTrigger className="pl-9 w-full">
                             <SelectValue placeholder="Select type" />
@@ -483,6 +529,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Network}
                       value={formData.vpn_ip || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="ms_office_license"
@@ -490,6 +537,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={FileText}
                       value={formData.ms_office_license || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                     <IconInput
                       id="unit_serial_number"
@@ -497,6 +545,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       icon={Hash}
                       value={formData.unit_serial_number || ""}
                       onChange={handleInputChange}
+                      readOnly={!canUpdateDetails}
                     />
                   </CardContent>
                 </Card>
@@ -507,12 +556,12 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                   <CardHeader>
                     <CardTitle>Account Settings</CardTitle>
                     <CardDescription>
-                      Update user's login credentials and granular permissions.
+                      {canManageAccount ? "Update user's login credentials." : "View account settings."}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-6">
                     {/* Top Row: Email, Role, Reset */}
-                    <div className="flex flex-col md:flex-row gap-4 md:items-end">
+                    <div className={`flex flex-col md:flex-row gap-4 md:items-end ${!canManageAccount ? "pointer-events-none opacity-80" : ""}`}>
                       <div className="flex-1 space-y-2">
                         <Label htmlFor="account_email">Login Email Address</Label>
                         <div className="relative">
@@ -523,6 +572,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                             className="pl-10"
                             value={accountEmail}
                             onChange={(e) => setAccountEmail(e.target.value)}
+                            readOnly={!canManageAccount}
                           />
                         </div>
                       </div>
@@ -534,6 +584,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                           <Select
                             value={accountRoleId}
                             onValueChange={setAccountRoleId}
+                            disabled={!canManageAccount}
                           >
                             <SelectTrigger className="pl-10">
                               <SelectValue placeholder="Select role" />
@@ -552,7 +603,7 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                       <div className="md:pb-0">
                          <Button 
                           onClick={handleSendResetLink} 
-                          disabled={resetLoading}
+                          disabled={resetLoading || !canManageAccount}
                           variant="secondary"
                           className="w-full md:w-auto gap-2"
                         >
@@ -567,82 +618,91 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                     </div>
 
                     {/* Permissions Section */}
-                    <div className="space-y-4 border-t pt-4">
-                      <h3 className="font-medium flex items-center gap-2">
-                        <Shield className="h-4 w-4" /> Special Permissions
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        Customize permissions for this specific user. Permissions inherited from the selected role are checked and disabled.
-                      </p>
+                    {canManagePermissions ? (
+                      <div className="space-y-4 border-t pt-4">
+                        <h3 className="font-medium flex items-center gap-2">
+                          <Shield className="h-4 w-4" /> Special Permissions
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Customize permissions for this specific user. Permissions inherited from the selected role are checked and disabled.
+                        </p>
 
-                      <div className="space-y-2">
-                        {Object.entries(groupedPermissions).map(([group, perms]) => (
-                          <div key={group} className="border rounded-md overflow-hidden bg-card">
-                            <button
-                              className="w-full flex items-center justify-between p-3 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
-                              onClick={() => toggleGroup(group)}
-                            >
-                              <div className="flex items-center gap-2">
-                                {expandedGroups[group] ? (
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                )}
-                                <span className="font-bold text-sm">{group}</span>
-                                <Badge variant="secondary" className="h-4 px-1 text-[9px] font-normal">
-                                  {perms.length}
-                                </Badge>
-                              </div>
-                              <div className="text-[10px] text-muted-foreground">
-                                {perms.filter(p => currentRolePermissions.includes(p.id) || directPermissions.includes(p.id)).length} active
-                              </div>
-                            </button>
-                            
-                            {expandedGroups[group] && (
-                              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                                {perms.map((permission) => {
-                                  const isRolePermission = currentRolePermissions.includes(permission.id);
-                                  const isDirectPermission = directPermissions.includes(permission.id);
-                                  const isChecked = isRolePermission || isDirectPermission;
-                                  
-                                  return (
-                                    <div
-                                      key={permission.id}
-                                      className="flex items-start space-x-3 group"
-                                    >
-                                      <Checkbox
-                                        id={`user-perm-${permission.id}`}
-                                        checked={isChecked}
-                                        disabled={isRolePermission}
-                                        onCheckedChange={() => handleTogglePermission(permission.id)}
-                                        className="mt-0.5"
-                                      />
-                                      <div className="grid gap-1 leading-tight">
-                                        <label
-                                          htmlFor={`user-perm-${permission.id}`}
-                                          className={`text-sm font-medium ${isRolePermission ? "text-muted-foreground cursor-not-allowed" : "cursor-pointer group-hover:text-primary"} transition-colors`}
-                                        >
-                                          {permission.name}
-                                          {isRolePermission && (
-                                            <span className="ml-2 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Role</span>
-                                          )}
-                                          {isDirectPermission && !isRolePermission && (
-                                            <span className="ml-2 text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">Direct</span>
-                                          )}
-                                        </label>
-                                        <p className="text-[10px] text-muted-foreground font-mono">
-                                          {permission.code}
-                                        </p>
+                        <div className="space-y-2">
+                          {Object.entries(groupedPermissions).map(([group, perms]) => (
+                            <div key={group} className="border rounded-md overflow-hidden bg-card">
+                              <button
+                                className="w-full flex items-center justify-between p-3 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                                onClick={() => toggleGroup(group)}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {expandedGroups[group] ? (
+                                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                  <span className="font-bold text-sm">{group}</span>
+                                  <Badge variant="secondary" className="h-4 px-1 text-[9px] font-normal">
+                                    {perms.length}
+                                  </Badge>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">
+                                  {perms.filter(p => currentRolePermissions.includes(p.id) || directPermissions.includes(p.id)).length} active
+                                </div>
+                              </button>
+                              
+                              {expandedGroups[group] && (
+                                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                                  {perms.map((permission) => {
+                                    const isRolePermission = currentRolePermissions.includes(permission.id);
+                                    const isDirectPermission = directPermissions.includes(permission.id);
+                                    const isChecked = isRolePermission || isDirectPermission;
+                                    
+                                    return (
+                                      <div
+                                        key={permission.id}
+                                        className="flex items-start space-x-3 group"
+                                      >
+                                        <Checkbox
+                                          id={`user-perm-${permission.id}`}
+                                          checked={isChecked}
+                                          disabled={isRolePermission}
+                                          onCheckedChange={() => handleTogglePermission(permission.id)}
+                                          className="mt-0.5"
+                                        />
+                                        <div className="grid gap-1 leading-tight">
+                                          <label
+                                            htmlFor={`user-perm-${permission.id}`}
+                                            className={`text-sm font-medium ${isRolePermission ? "text-muted-foreground cursor-not-allowed" : "cursor-pointer group-hover:text-primary"} transition-colors`}
+                                          >
+                                            {permission.name}
+                                            {isRolePermission && (
+                                              <span className="ml-2 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Role</span>
+                                            )}
+                                            {isDirectPermission && !isRolePermission && (
+                                              <span className="ml-2 text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">Direct</span>
+                                            )}
+                                          </label>
+                                          <p className="text-[10px] text-muted-foreground font-mono">
+                                            {permission.code}
+                                          </p>
+                                        </div>
                                       </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="border-t pt-4">
+                        <div className="flex items-center gap-2 text-muted-foreground p-4 bg-muted/20 rounded-md">
+                          <Lock className="h-4 w-4" />
+                          <span className="text-sm">You do not have permission to view or manage granular permissions.</span>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -653,14 +713,16 @@ export function UserDetailsModal({ userId, email, isOpen, onClose, roles, onUpda
                 <X className="h-4 w-4" />
                 Cancel
               </Button>
-              <Button onClick={handleSaveChanges} disabled={saving} className="gap-2">
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                Save Changes
-              </Button>
+              {(canUpdateDetails || canManageAccount || canManagePermissions) && (
+                <Button onClick={handleSaveChanges} disabled={saving} className="gap-2">
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Save Changes
+                </Button>
+              )}
             </div>
           </div>
         )}

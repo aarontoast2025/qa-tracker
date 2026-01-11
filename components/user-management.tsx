@@ -351,27 +351,27 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
                                 </DropdownMenuItem>
                               )}
                               
+                              {currentUserPermissions.includes('users.suspend') && (
+                                <DropdownMenuItem 
+                                  className={`gap-2 ${user.is_suspended ? 'text-green-600' : 'text-orange-600'}`}
+                                  onClick={() => setSuspendingUser(user)}
+                                >
+                                  {user.is_suspended ? (
+                                    <>
+                                      <UserCheck className="h-3.5 w-3.5" /> Unsuspend User
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Ban className="h-3.5 w-3.5" /> Suspend User
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                              )}
+                              
                               {currentUserPermissions.includes('roles.manage') && (
-                                <>
-                                  <DropdownMenuItem 
-                                    className={`gap-2 ${user.is_suspended ? 'text-green-600' : 'text-orange-600'}`}
-                                    onClick={() => setSuspendingUser(user)}
-                                  >
-                                    {user.is_suspended ? (
-                                      <>
-                                        <UserCheck className="h-3.5 w-3.5" /> Unsuspend User
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Ban className="h-3.5 w-3.5" /> Suspend User
-                                      </>
-                                    )}
-                                  </DropdownMenuItem>
-                                  
-                                  <DropdownMenuItem className="text-red-600 dark:text-red-400 gap-2">
-                                    <X className="h-3.5 w-3.5" /> Remove User
-                                  </DropdownMenuItem>
-                                </>
+                                <DropdownMenuItem className="text-red-600 dark:text-red-400 gap-2">
+                                  <X className="h-3.5 w-3.5" /> Remove User
+                                </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -501,7 +501,7 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
 
                                       onUpdate={handleUserUpdate}
 
-      
+                                      currentUserPermissions={currentUserPermissions}
 
                                     />
 
