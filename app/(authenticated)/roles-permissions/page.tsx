@@ -45,7 +45,7 @@ export default async function RolesPermissionsPage() {
   }, {});
 
   return (
-    <div className="w-full max-w-6xl mx-auto py-8 px-4">
+    <div className="flex flex-col gap-8">
       <RolesPermissionsHeader />
 
       <RolesList roles={roles || []} allPermissions={permissions || []} />

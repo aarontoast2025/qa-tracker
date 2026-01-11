@@ -26,13 +26,22 @@ import {
   Loader2,
   Mail,
   RefreshCw,
+  Phone,
+  Shield,
+  Briefcase,
+  IdCard,
+  Filter,
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +61,11 @@ export interface UserManagementData {
   email: string | undefined;
   first_name: string | null;
   last_name: string | null;
+  employee_id: string | null;
+  nt_login: string | null;
+  mobile_number: string | null;
+  company_email: string | null;
+  program_email: string | null;
   role: string;
   status: "active" | "invited" | "expired" | "suspended";
   is_suspended: boolean;
@@ -67,6 +81,7 @@ interface UserManagementProps {
 export function UserManagement({ initialUsers, roles }: UserManagementProps) {
   const [users, setUsers] = useState<UserManagementData[]>(initialUsers);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [userDetailsUser, setUserDetailsUser] = useState<UserManagementData | null>(null);
   const [suspendingUser, setSuspendingUser] = useState<UserManagementData | null>(null);
@@ -77,12 +92,30 @@ export function UserManagement({ initialUsers, roles }: UserManagementProps) {
       const fullName = `${user.first_name || ""} ${user.last_name || ""}`.toLowerCase();
       const email = (user.email || "").toLowerCase();
       const search = searchQuery.toLowerCase();
-      return fullName.includes(search) || email.includes(search);
+      
+      const matchesSearch = fullName.includes(search) || email.includes(search);
+      const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(user.status);
+      
+      return matchesSearch && matchesStatus;
     });
-  }, [users, searchQuery]);
+  }, [users, searchQuery, selectedStatuses]);
+
+  const toggleStatus = (status: string) => {
+    setSelectedStatuses((prev) =>
+      prev.includes(status)
+        ? prev.filter((s) => s !== status)
+        : [...prev, status]
+    );
+  };
 
   const handleInviteSuccess = (newUser: UserManagementData) => {
     setUsers((prev) => [newUser, ...prev]);
+  };
+
+  const handleUserUpdate = (updatedData: Partial<UserManagementData>) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === updatedData.id ? { ...u, ...updatedData } : u))
+    );
   };
 
   const handleSuspendToggle = async () => {
@@ -129,7 +162,7 @@ export function UserManagement({ initialUsers, roles }: UserManagementProps) {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 w-full">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
@@ -143,7 +176,7 @@ export function UserManagement({ initialUsers, roles }: UserManagementProps) {
         </Button>
       </div>
 
-      <Card className="border-t-4 border-t-primary shadow-sm">
+      <Card className="border-t-4 border-t-primary shadow-sm w-full">
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -155,28 +188,69 @@ export function UserManagement({ initialUsers, roles }: UserManagementProps) {
                 Review and manage all authenticated users and their profiles.
               </CardDescription>
             </div>
-            <div className="relative w-full md:w-72">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name or email..."
-                className="pl-9 bg-muted/20"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <div className="relative w-full md:w-72">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name or email..."
+                  className="pl-9 bg-muted/20"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2 whitespace-nowrap">
+                    <Filter className="h-4 w-4" />
+                    Status
+                    {selectedStatuses.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 px-1 h-5 text-[10px]">
+                        {selectedStatuses.length}
+                      </Badge>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {["active", "invited", "expired", "suspended"].map((status) => (
+                    <DropdownMenuCheckboxItem
+                      key={status}
+                      checked={selectedStatuses.includes(status)}
+                      onCheckedChange={() => toggleStatus(status)}
+                      className="capitalize"
+                    >
+                      {status}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  {selectedStatuses.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="justify-center font-medium"
+                        onClick={() => setSelectedStatuses([])}
+                      >
+                        Clear Filters
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="rounded-md border overflow-hidden w-full">
+            <div className="overflow-x-auto w-full">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 border-b">
                   <tr>
                     <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-wider text-[10px]">User</th>
-                    <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Email</th>
+                    <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-wider text-[10px]">NT Login</th>
+                    <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Emails</th>
                     <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Role</th>
                     <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Status</th>
-                    <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Joined</th>
                     <th className="px-4 py-3 text-right font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Actions</th>
                   </tr>
                 </thead>
@@ -194,22 +268,38 @@ export function UserManagement({ initialUsers, roles }: UserManagementProps) {
                               {(user.first_name?.[0] || user.email?.[0] || "?").toUpperCase()}
                             </div>
                             <div className="flex flex-col">
-                              <span className="font-semibold text-foreground">
+                              <span className="font-semibold text-foreground whitespace-nowrap">
                                 {user.first_name || user.last_name
                                   ? `${user.first_name || ""} ${user.last_name || ""}`
                                   : "Pending Setup"}
                               </span>
                               <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                <Fingerprint className="h-2.5 w-2.5" />
-                                {user.id.substring(0, 8)}
+                                <IdCard className="h-2.5 w-2.5" />
+                                {user.employee_id || "No ID"}
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-4 text-muted-foreground font-medium">
+                        <td className="px-4 py-4 text-muted-foreground font-medium whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
-                            <Mail className="h-3 w-3 opacity-50" />
-                            {user.email}
+                            <Briefcase className="h-3 w-3 opacity-50" />
+                            {user.nt_login || "-"}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-muted-foreground font-medium">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <Mail className="h-3 w-3 opacity-50" />
+                              <span className="truncate max-w-[180px]" title={user.company_email || ""}>
+                                {user.company_email || "-"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs opacity-70">
+                              <Mail className="h-3 w-3 opacity-50" />
+                              <span className="truncate max-w-[180px]" title={user.program_email || ""}>
+                                {user.program_email || "-"}
+                              </span>
+                            </div>
                           </div>
                         </td>
                         <td className="px-4 py-4">
@@ -239,12 +329,6 @@ export function UserManagement({ initialUsers, roles }: UserManagementProps) {
                               Invited
                             </div>
                           )}
-                        </td>
-                        <td className="px-4 py-4 text-muted-foreground text-xs">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="h-3 w-3" />
-                            {new Date(user.created_at).toLocaleDateString()}
-                          </div>
                         </td>
                         <td className="px-4 py-4 text-right">
                           <DropdownMenu>
@@ -384,17 +468,35 @@ export function UserManagement({ initialUsers, roles }: UserManagementProps) {
 
       
 
-            <UserDetailsModal 
+                                    <UserDetailsModal 
 
-              isOpen={!!userDetailsUser}
+      
 
-              onClose={() => setUserDetailsUser(null)}
+                                      isOpen={!!userDetailsUser}
 
-              userId={userDetailsUser?.id || null}
+      
 
-              email={userDetailsUser?.email}
+                                      onClose={() => setUserDetailsUser(null)}
 
-            />
+      
+
+                                      userId={userDetailsUser?.id || null}
+
+      
+
+                                      email={userDetailsUser?.email}
+
+      
+
+                                      roles={roles}
+
+      
+
+                                      onUpdate={handleUserUpdate}
+
+      
+
+                                    />
 
           </div>
 

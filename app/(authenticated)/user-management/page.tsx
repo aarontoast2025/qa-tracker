@@ -27,7 +27,7 @@ export default async function UserManagementPage() {
   // Fetch all profiles with roles and suspension status
   const { data: profiles, error: profileError } = await adminClient
     .from("user_profiles")
-    .select("id, first_name, last_name, program_email, is_suspended, user_roles(name)");
+    .select("id, first_name, last_name, employee_id, nt_login, mobile_number, company_email, program_email, is_suspended, user_roles(name)");
 
   if (profileError) {
     console.error("Error fetching profiles:", JSON.stringify(profileError, null, 2));
@@ -71,6 +71,11 @@ export default async function UserManagementPage() {
       email: authUser.email,
       first_name: profile?.first_name || null,
       last_name: profile?.last_name || null,
+      employee_id: profile?.employee_id || null,
+      nt_login: profile?.nt_login || null,
+      mobile_number: profile?.mobile_number || null,
+      company_email: profile?.company_email || null,
+      program_email: profile?.program_email || null,
       role: (profile?.user_roles as any)?.name || "Viewer",
       status,
       is_suspended: profile?.is_suspended || false,
@@ -83,7 +88,7 @@ export default async function UserManagementPage() {
   mergedUsers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
-    <div className="w-full max-w-6xl mx-auto py-8 px-4">
+    <div className="w-full">
       <UserManagement initialUsers={mergedUsers} roles={roles || []} />
     </div>
   );

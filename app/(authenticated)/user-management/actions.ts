@@ -158,6 +158,52 @@ export async function getUserDetails(userId: string) {
   }
 }
 
+export async function updateUserProfile(userId: string, data: any) {
+  try {
+    const supabase = createAdminClient();
+    
+    const { error } = await supabase
+      .from("user_profiles")
+      .update(data)
+      .eq("id", userId);
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/user-management");
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "An unexpected error occurred." };
+  }
+}
+
+export async function updateUserAccount(userId: string, email: string, roleId: string) {
+  try {
+    const supabase = createAdminClient();
+
+    // 1. Update Email in Auth if provided
+    if (email) {
+      const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+        email: email,
+        email_confirm: true, // Confirm the email automatically for the user
+      });
+      if (authError) return { error: authError.message };
+    }
+
+    // 2. Update Role in Profile
+    const { error: profileError } = await supabase
+      .from("user_profiles")
+      .update({ role_id: roleId })
+      .eq("id", userId);
+
+    if (profileError) return { error: profileError.message };
+
+    revalidatePath("/user-management");
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "An unexpected error occurred." };
+  }
+}
+
 export async function sendPasswordReset(email: string) {
   try {
     const supabase = createAdminClient();
