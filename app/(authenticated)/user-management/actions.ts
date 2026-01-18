@@ -38,30 +38,26 @@ export async function inviteUser(email: string, roleId?: string) {
     const supabase = createAdminClient();
     const supabaseServer = await createClient();
 
-    // Get the origin - try multiple sources
-    // 1. Server-side env var (for production)
-    // 2. Public env var (build-time)
-    // 3. Headers (runtime fallback)
-    let origin: string = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+    // Get the origin from headers (most reliable in Vercel)
+    const { headers } = await import("next/headers");
+    const headersList = await headers();
     
-    // Fallback to headers if env var not set
-    if (!origin) {
-      const { headers } = await import("next/headers");
-      const headersList = await headers();
-      const headerOrigin = headersList.get("origin");
-      
-      if (headerOrigin) {
-        origin = headerOrigin;
-      } else {
-        const host = headersList.get("host");
-        const protocol = host?.includes("localhost") ? "http" : "https";
-        origin = `${protocol}://${host || "localhost:3000"}`;
-      }
+    // Try to get origin from various header sources
+    let origin: string = headersList.get("x-forwarded-host") || 
+                        headersList.get("host") || 
+                        process.env.SITE_URL || 
+                        process.env.NEXT_PUBLIC_SITE_URL || 
+                        "";
+    
+    // Add protocol if not present
+    if (origin && !origin.startsWith("http")) {
+      const protocol = origin.includes("localhost") ? "http" : "https";
+      origin = `${protocol}://${origin}`;
     }
     
     // Final fallback
     if (!origin || origin.includes("null")) {
-      origin = "http://localhost:3000";
+      origin = "https://qa-tracker-toast.vercel.app";
     }
 
     // Remove trailing slash if present
@@ -69,7 +65,7 @@ export async function inviteUser(email: string, roleId?: string) {
 
     const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=invite`;
     
-    console.log('[inviteUser] Origin source:', process.env.SITE_URL ? 'SITE_URL' : process.env.NEXT_PUBLIC_SITE_URL ? 'NEXT_PUBLIC_SITE_URL' : 'headers');
+    console.log('[inviteUser] Origin:', origin);
     console.log('[inviteUser] Redirect URL:', redirectUrl);
 
     // Check Permission
@@ -199,27 +195,26 @@ export async function resendInvitation(email: string) {
         if (!safety.allowed) return { error: safety.error };
     }
 
-    // Get the origin - try multiple sources
-    let origin: string = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+    // Get the origin from headers (most reliable in Vercel)
+    const { headers } = await import("next/headers");
+    const headersList = await headers();
     
-    // Fallback to headers if env var not set
-    if (!origin) {
-      const { headers } = await import("next/headers");
-      const headersList = await headers();
-      const headerOrigin = headersList.get("origin");
-      
-      if (headerOrigin) {
-        origin = headerOrigin;
-      } else {
-        const host = headersList.get("host");
-        const protocol = host?.includes("localhost") ? "http" : "https";
-        origin = `${protocol}://${host || "localhost:3000"}`;
-      }
+    // Try to get origin from various header sources
+    let origin: string = headersList.get("x-forwarded-host") || 
+                        headersList.get("host") || 
+                        process.env.SITE_URL || 
+                        process.env.NEXT_PUBLIC_SITE_URL || 
+                        "";
+    
+    // Add protocol if not present
+    if (origin && !origin.startsWith("http")) {
+      const protocol = origin.includes("localhost") ? "http" : "https";
+      origin = `${protocol}://${origin}`;
     }
     
     // Final fallback
     if (!origin || origin.includes("null")) {
-      origin = "http://localhost:3000";
+      origin = "https://qa-tracker-toast.vercel.app";
     }
 
     // Remove trailing slash if present
@@ -227,7 +222,7 @@ export async function resendInvitation(email: string) {
 
     const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=invite`;
     
-    console.log('[resendInvitation] Origin source:', process.env.SITE_URL ? 'SITE_URL' : process.env.NEXT_PUBLIC_SITE_URL ? 'NEXT_PUBLIC_SITE_URL' : 'headers');
+    console.log('[resendInvitation] Origin:', origin);
     console.log('[resendInvitation] Redirect URL:', redirectUrl);
 
     const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
@@ -432,27 +427,26 @@ export async function sendPasswordReset(email: string) {
         if (!safety.allowed) return { error: safety.error };
     }
 
-    // Get the origin - try multiple sources
-    let origin: string = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+    // Get the origin from headers (most reliable in Vercel)
+    const { headers } = await import("next/headers");
+    const headersList = await headers();
     
-    // Fallback to headers if env var not set
-    if (!origin) {
-      const { headers } = await import("next/headers");
-      const headersList = await headers();
-      const headerOrigin = headersList.get("origin");
-      
-      if (headerOrigin) {
-        origin = headerOrigin;
-      } else {
-        const host = headersList.get("host");
-        const protocol = host?.includes("localhost") ? "http" : "https";
-        origin = `${protocol}://${host || "localhost:3000"}`;
-      }
+    // Try to get origin from various header sources
+    let origin: string = headersList.get("x-forwarded-host") || 
+                        headersList.get("host") || 
+                        process.env.SITE_URL || 
+                        process.env.NEXT_PUBLIC_SITE_URL || 
+                        "";
+    
+    // Add protocol if not present
+    if (origin && !origin.startsWith("http")) {
+      const protocol = origin.includes("localhost") ? "http" : "https";
+      origin = `${protocol}://${origin}`;
     }
     
     // Final fallback
     if (!origin || origin.includes("null")) {
-      origin = "http://localhost:3000";
+      origin = "https://qa-tracker-toast.vercel.app";
     }
 
     // Remove trailing slash if present
@@ -460,7 +454,7 @@ export async function sendPasswordReset(email: string) {
 
     const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=recovery`;
     
-    console.log('[sendPasswordReset] Origin source:', process.env.SITE_URL ? 'SITE_URL' : process.env.NEXT_PUBLIC_SITE_URL ? 'NEXT_PUBLIC_SITE_URL' : 'headers');
+    console.log('[sendPasswordReset] Origin:', origin);
     console.log('[sendPasswordReset] Redirect URL:', redirectUrl);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
