@@ -52,7 +52,7 @@ export async function inviteUser(email: string, roleId?: string) {
       origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     }
 
-    const redirectUrl = `${origin}/auth/update-password`;
+    const redirectUrl = `${origin}/auth/callback?next=/auth/update-password`;
 
     // Check Permission
     const canInvite = await hasPermission('users.invite');
@@ -192,7 +192,7 @@ export async function resendInvitation(email: string) {
       origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     }
 
-    const redirectUrl = `${origin}/auth/update-password`;
+    const redirectUrl = `${origin}/auth/callback?next=/auth/update-password`;
 
     const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: redirectUrl,
@@ -403,7 +403,7 @@ export async function sendPasswordReset(email: string) {
       origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     }
 
-    const redirectUrl = `${origin}/auth/update-password`;
+    const redirectUrl = `${origin}/auth/callback?next=/auth/update-password`;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl,
@@ -428,12 +428,26 @@ export async function deleteUser(userId: string) {
 
     const supabase = createAdminClient();
 
-    // Delete User from Auth
-    const { error } = await supabase.auth.admin.deleteUser(userId);
+    // IMPORTANT: Delete from user_profiles FIRST to trigger CASCADE deletions
+    // This will delete related records: user_chats, user_direct_permissions, etc.
+    // The service_role key bypasses RLS and the protect_admin_profiles trigger
+    const { error: profileError } = await supabase
+      .from("user_profiles")
+      .delete()
+      .eq("id", userId);
 
-    if (error) {
-      console.error("Error deleting user:", error);
-      return { error: error.message };
+    if (profileError) {
+      console.error("Error deleting user profile:", profileError);
+      return { error: `Failed to delete user profile: ${profileError.message}` };
+    }
+
+    // Then delete from Auth (this removes login ability)
+    const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+
+    if (authError) {
+      console.error("Error deleting auth user:", authError);
+      // Profile is already deleted, but auth failed - this is still somewhat successful
+      return { error: `User profile deleted but auth deletion failed: ${authError.message}` };
     }
 
     revalidatePath("/user-management");
