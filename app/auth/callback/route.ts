@@ -15,6 +15,23 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && data.session) {
+      const flow = requestUrl.searchParams.get("flow");
+      
+      // If this is an invite flow, force redirect to password setup
+      // This is more reliable than checking last_sign_in_at which might be updated immediately
+      if (flow === 'invite') {
+        const forwardedHost = request.headers.get("x-forwarded-host");
+        const isLocalEnv = process.env.NODE_ENV === "development";
+        
+        if (isLocalEnv) {
+          return NextResponse.redirect(`${requestUrl.origin}/auth/update-password`);
+        } else if (forwardedHost) {
+          return NextResponse.redirect(`https://${forwardedHost}/auth/update-password`);
+        } else {
+          return NextResponse.redirect(`${requestUrl.origin}/auth/update-password`);
+        }
+      }
+
       // Check if the user needs to set their password
       // If they've never logged in before (new invite), redirect to update-password
       const { data: { user } } = await supabase.auth.getUser();

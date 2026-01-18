@@ -52,7 +52,7 @@ export async function inviteUser(email: string, roleId?: string) {
       origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     }
 
-    const redirectUrl = `${origin}/auth/callback?next=/auth/update-password`;
+    const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=invite`;
 
     // Check Permission
     const canInvite = await hasPermission('users.invite');
@@ -192,7 +192,7 @@ export async function resendInvitation(email: string) {
       origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     }
 
-    const redirectUrl = `${origin}/auth/callback?next=/auth/update-password`;
+    const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=invite`;
 
     const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: redirectUrl,
@@ -403,7 +403,7 @@ export async function sendPasswordReset(email: string) {
       origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     }
 
-    const redirectUrl = `${origin}/auth/callback?next=/auth/update-password`;
+    const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=invite`;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl,
