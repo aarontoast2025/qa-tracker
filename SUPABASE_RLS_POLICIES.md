@@ -74,26 +74,14 @@ This document provides a comprehensive overview of all RLS policies currently im
 
 ### Policies
 
-#### 1. Profiles are viewable by owner or admins
-- **Type**: SELECT
-- **Target Roles**: public (authenticated users)
-- **Policy Behavior**: Permissive
-- **Description**: Allows users to view their own profile OR allows admins to view all profiles
-- **SQL**:
-```sql
-((( SELECT auth.uid() AS uid) = id) OR has_role('Admin'::text))
-```
-- **Note**: This policy protects full profile access for profile pages
-
-#### 2. Basic profile info viewable for chat
+#### 1. Authenticated users can view all profiles
 - **Type**: SELECT
 - **Target Roles**: authenticated
 - **Policy Behavior**: Permissive
-- **Description**: Allows all authenticated users to read basic profile info (id, first_name, last_name, company_email) needed for the chat feature
+- **Description**: Allows all authenticated users to view user profiles. This is required for features like the global chat and user lists.
 - **SQL**: `true`
-- **Status**: ✅ ACTIVE
 
-#### 3. Profiles are updatable by owner or admins
+#### 2. Profiles are updatable by owner or admins
 - **Type**: UPDATE
 - **Target Roles**: public (authenticated users)
 - **Policy Behavior**: Permissive
@@ -108,7 +96,7 @@ This document provides a comprehensive overview of all RLS policies currently im
 AND ((role_id = get_my_role_id()) OR (role_id IS NULL))))
 ```
 
-#### 4. Profiles can be inserted by owner or admins
+#### 3. Profiles can be inserted by owner or admins
 - **Type**: INSERT
 - **Target Roles**: public (authenticated users)
 - **Policy Behavior**: Permissive
@@ -118,7 +106,7 @@ AND ((role_id = get_my_role_id()) OR (role_id IS NULL))))
 ((( SELECT auth.uid() AS uid) = id) OR has_role('Admin'::text))
 ```
 
-#### 5. Only admins can delete profiles
+#### 4. Only admins can delete profiles
 - **Type**: DELETE
 - **Target Roles**: public (authenticated users)
 - **Policy Behavior**: Permissive
