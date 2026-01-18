@@ -48,16 +48,54 @@ The following functions are defined in the `public` schema:
 
 | Function Name | Type | Return Type | Security | Purpose |
 |--------------|------|-------------|----------|---------|
+| `delete_user_sessions` | Function | void | Definer | Forces user logout by deleting sessions |
 | `get_my_role_id` | Function | uuid | Definer | Returns the role_id of the current authenticated user |
 | `handle_new_user` | Trigger Function | trigger | Definer | Automatically creates user_profile when new auth user is created |
+| `has_permission` | Function | boolean | Definer | Checks if user has a specific permission code |
 | `has_role` | Function | boolean | Definer | Checks if current user has a specific role |
 | `is_current_user_admin` | Function | boolean | Definer | Checks if current user has Admin role |
 | `protect_admin_profiles` | Trigger Function | trigger | Definer | **BLOCKS deletion of admin profiles** |
 | `send_email_bridge` | Function | jsonb | Definer | Forwards email events to Next.js API |
+| `update_role_permissions_atomic` | Function | void | Definer | Atomic update of role permissions to prevent data loss |
 
 ### Complete SQL Definitions
 
-#### 1. `get_my_role_id` Function
+#### 1. `delete_user_sessions` Function
+
+**Purpose:** Forces a user to log out by deleting all their active sessions from the database.
+
+**Arguments:** `p_user_id uuid`
+
+**Return Type:** `void`
+
+**Security:** `SECURITY DEFINER` (Restricted to `service_role`)
+
+**Language:** `plpgsql`
+
+```sql
+CREATE OR REPLACE FUNCTION delete_user_sessions(p_user_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+  -- Delete from auth.sessions
+  DELETE FROM auth.sessions WHERE user_id = p_user_id;
+  
+  -- Also delete from auth.refresh_tokens just to be safe
+  DELETE FROM auth.refresh_tokens WHERE session_id NOT IN (SELECT id FROM auth.sessions);
+END;
+$$;
+```
+
+**Usage:**
+- Called by the `forceLogoutUser` server action
+- Permissions: `REVOKE EXECUTE FROM public`, `GRANT EXECUTE TO service_role`
+
+---
+
+#### 2. `get_my_role_id` Function
 
 **Purpose:** Returns the role_id of the current authenticated user from their profile.
 
@@ -80,7 +118,7 @@ $$;
 
 ---
 
-#### 2. `handle_new_user` Function
+#### 3. `handle_new_user` Function
 
 **Purpose:** Trigger function that automatically creates a user_profile record when a new user signs up through authentication.
 
@@ -128,7 +166,69 @@ CREATE TRIGGER on_auth_user_created
 
 ---
 
-#### 3. `has_role` Function
+#### 4. `has_permission` Function
+
+**Purpose:** Checks if the current authenticated user has a specific permission, either through their assigned Role or via Direct Permissions.
+
+**Arguments:** `perm_code text`
+
+**Return Type:** `boolean`
+
+**Security:** `SECURITY DEFINER`
+
+**Language:** `plpgsql`
+
+```sql
+CREATE OR REPLACE FUNCTION has_permission(perm_code text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  is_admin boolean;
+  has_perm boolean;
+BEGIN
+  -- Allow service_role to bypass checks
+  IF current_setting('role', true) = 'service_role' THEN
+    RETURN TRUE;
+  END IF;
+
+  -- Check if user is Admin (Admins have all permissions)
+  SELECT has_role('Admin') INTO is_admin;
+  IF is_admin THEN
+    RETURN true;
+  END IF;
+
+  -- Check if user has permission via Role OR Direct assignment
+  SELECT EXISTS (
+    -- Role Permissions
+    SELECT 1
+    FROM user_profiles up
+    JOIN user_role_permissions urp ON up.role_id = urp.role_id
+    JOIN user_permissions p ON urp.permission_id = p.id
+    WHERE up.id = auth.uid() AND p.code = perm_code
+    
+    UNION ALL
+    
+    -- Direct Permissions
+    SELECT 1
+    FROM user_direct_permissions udp
+    JOIN user_permissions p ON udp.permission_id = p.id
+    WHERE udp.user_id = auth.uid() AND p.code = perm_code
+  ) INTO has_perm;
+  
+  RETURN has_perm;
+END;
+$$;
+```
+
+**Usage in RLS Policies:**
+- Replaces strict `has_role('Admin')` checks
+- Used in `user_roles` and `user_role_permissions` policies to allow authorized non-admins to manage roles
+
+---
+
+#### 5. `has_role` Function
 
 **Purpose:** Checks if the current authenticated user has a specific role by name.
 
@@ -162,7 +262,7 @@ $$;
 
 ---
 
-#### 4. `is_current_user_admin` Function
+#### 6. `is_current_user_admin` Function
 
 **Purpose:** Checks if the currently authenticated user has the Admin role. This is a convenience function that wraps `has_role('Admin')`.
 
@@ -202,9 +302,9 @@ $$;
 
 ---
 
-#### 5. `protect_admin_profiles` Function ⚠️ **DELETION BLOCKER**
+#### 7. `protect_admin_profiles` Function ⚠️ **DELETION BLOCKER**
 
-**Purpose:** Trigger function that prevents deletion or modification of admin profiles by non-admin users. **This is the main blocker that prevents orphaned record cleanup.**
+**Purpose:** Trigger function that prevents deletion or modification of admin profiles by non-admin users.
 
 **Return Type:** `trigger`
 
@@ -313,7 +413,7 @@ ALTER TABLE user_profiles ENABLE TRIGGER tr_protect_admin_profiles;
 
 ---
 
-#### 6. `send_email_bridge` Function
+#### 8. `send_email_bridge` Function
 
 **Purpose:** Forwards email-related events from Supabase to your Next.js API endpoint for processing.
 
@@ -355,6 +455,58 @@ $$;
 - Requires `pg_net` extension for HTTP requests
 - URL points to your deployed Next.js application
 - Called by Supabase Auth hooks
+
+---
+
+#### 9. `update_role_permissions_atomic` Function
+
+**Purpose:** Safely updates role permissions in a single atomic transaction. Deletes old permissions and inserts new ones.
+
+**Arguments:** `p_role_id uuid`, `p_permission_ids uuid[]`
+
+**Return Type:** `void`
+
+**Security:** `SECURITY DEFINER`
+
+**Language:** `plpgsql`
+
+```sql
+CREATE OR REPLACE FUNCTION update_role_permissions_atomic(
+  p_role_id uuid,
+  p_permission_ids uuid[]
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_perm_id uuid;
+BEGIN
+  -- Security Check: Ensure caller has permission
+  IF NOT has_permission('roles.permission') AND NOT has_role('Admin') AND current_setting('role', true) <> 'service_role' THEN
+    RAISE EXCEPTION 'Access denied: Insufficient permissions to manage role permissions.';
+  END IF;
+
+  -- 1. Delete existing permissions
+  DELETE FROM user_role_permissions
+  WHERE role_id = p_role_id;
+
+  -- 2. Insert new permissions
+  IF p_permission_ids IS NOT NULL AND array_length(p_permission_ids, 1) > 0 THEN
+    FOREACH v_perm_id IN ARRAY p_permission_ids
+    LOOP
+      INSERT INTO user_role_permissions (role_id, permission_id)
+      VALUES (p_role_id, v_perm_id);
+    END LOOP;
+  END IF;
+END;
+$$;
+```
+
+**Usage:**
+- Called by `updateRolePermissions` server action
+- Prevents data loss if the insert fails after delete
+
 
 ---
 

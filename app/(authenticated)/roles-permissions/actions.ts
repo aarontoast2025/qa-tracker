@@ -33,27 +33,13 @@ export async function updateRolePermissions(roleId: string, permissionIds: strin
 
     const supabase = await createClient();
 
-    // 1. Delete existing permissions for this role
-    const { error: deleteError } = await supabase
-      .from("user_role_permissions")
-      .delete()
-      .eq("role_id", roleId);
+    // Use RPC for atomic update (prevents data loss if insert fails after delete)
+    const { error } = await supabase.rpc('update_role_permissions_atomic', {
+      p_role_id: roleId,
+      p_permission_ids: permissionIds
+    });
 
-    if (deleteError) throw deleteError;
-
-    // 2. Insert new permissions
-    if (permissionIds.length > 0) {
-      const { error: insertError } = await supabase
-        .from("user_role_permissions")
-        .insert(
-          permissionIds.map((permId) => ({
-            role_id: roleId,
-            permission_id: permId,
-          }))
-        );
-
-      if (insertError) throw insertError;
-    }
+    if (error) throw error;
 
     revalidatePath("/roles-permissions");
     return { success: true };

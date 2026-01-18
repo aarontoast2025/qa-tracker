@@ -34,6 +34,7 @@ import {
   Filter,
   Trash2,
   KeyRound,
+  LogOut,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -45,6 +46,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
+import { createClient } from "@/lib/supabase/client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,7 +59,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { InviteUserModal } from "./invite-user-modal";
 import { UserDetailsModal } from "./user-details-modal";
-import { suspendUser, resendInvitation, deleteUser, sendPasswordReset } from "@/app/(authenticated)/user-management/actions";
+import { suspendUser, resendInvitation, deleteUser, sendPasswordReset, forceLogoutUser } from "@/app/(authenticated)/user-management/actions";
 import { PresenceHeader } from "./presence-header";
 
 export interface UserManagementData {
@@ -91,7 +93,11 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [userDetailsUser, setUserDetailsUser] = useState<UserManagementData | null>(null);
   const [suspendingUser, setSuspendingUser] = useState<UserManagementData | null>(null);
+  const [forcingLogoutUser, setForcingLogoutUser] = useState<UserManagementData | null>(null);
   const [deletingUser, setDeletingUser] = useState<UserManagementData | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -159,9 +165,56 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
     setSuspendingUser(null);
   };
 
+  const handleForceLogout = async () => {
+    if (!forcingLogoutUser) return;
+
+    setLoading(forcingLogoutUser.id);
+    setMessage(null);
+    const result = await forceLogoutUser(forcingLogoutUser.id);
+
+    if (!result.error) {
+      setMessage({ type: "success", text: "User logged out from all devices." });
+    } else {
+      setMessage({ type: "error", text: result.error });
+    }
+
+    setLoading(null);
+    setForcingLogoutUser(null);
+  };
+
   const handleDeleteUser = async () => {
     if (!deletingUser) return;
     
+    // Verify password
+    if (!deletePassword) {
+      setDeleteError("Please enter your password to confirm.");
+      return;
+    }
+
+    setIsVerifying(true);
+    setDeleteError(null);
+    
+    const supabase = createClient();
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    
+    if (!currentUser || !currentUser.email) {
+      setDeleteError("Could not identify current user.");
+      setIsVerifying(false);
+      return;
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: currentUser.email,
+      password: deletePassword,
+    });
+
+    if (signInError) {
+      setDeleteError("Incorrect password. Please try again.");
+      setIsVerifying(false);
+      return;
+    }
+
+    // Password verified, proceed with delete
     setLoading(deletingUser.id);
     setMessage(null);
     const result = await deleteUser(deletingUser.id);
@@ -173,8 +226,10 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
       setMessage({ type: "error", text: result.error });
     }
     
+    setIsVerifying(false);
     setLoading(null);
     setDeletingUser(null);
+    setDeletePassword(""); // Clear password
   };
 
   const handleResendInvite = async (user: UserManagementData) => {
@@ -435,6 +490,12 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
                                 </DropdownMenuItem>
                               )}
                               
+                              {user.status === "active" && currentUserPermissions.includes('users.forcelogout') && (
+                                <DropdownMenuItem className="gap-2 text-orange-600" onClick={() => setForcingLogoutUser(user)}>
+                                  <LogOut className="h-3.5 w-3.5" /> Force Logout
+                                </DropdownMenuItem>
+                              )}
+                              
                               {currentUserPermissions.includes('users.suspend') && (
                                 <DropdownMenuItem 
                                   className={`gap-2 ${user.is_suspended ? 'text-green-600' : 'text-orange-600'}`}
@@ -548,24 +609,24 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Confirmation Modal */}
+      {/* Force Logout Confirmation Modal */}
       <AlertDialog 
-        open={!!deletingUser} 
-        onOpenChange={(open) => !open && setDeletingUser(null)}
+        open={!!forcingLogoutUser} 
+        onOpenChange={(open) => !open && setForcingLogoutUser(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-5 w-5" />
-              Remove User: {deletingUser?.email}
+            <AlertDialogTitle className="flex items-center gap-2 text-orange-600">
+              <LogOut className="h-5 w-5" />
+              Force Logout: {forcingLogoutUser?.email}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 pt-2">
                 <p>
-                  Are you sure you want to permanently remove this user?
+                  Are you sure you want to force this user to log out?
                 </p>
-                <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 rounded-md text-sm border border-red-200 dark:border-red-800">
-                  <strong>Critical Warning:</strong> This action will remove the user and all their related data. This operation cannot be undone and data cannot be retrieved. If necessary, it is recommended to backup important data before proceeding.
+                <div className="p-3 bg-orange-50 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300 rounded-md text-sm border border-orange-200 dark:border-orange-800">
+                  <strong>Warning:</strong> This will immediately invalidate the user's session on all devices. They will need to log in again to access the platform.
                 </div>
               </div>
             </AlertDialogDescription>
@@ -575,11 +636,81 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
               <X className="h-4 w-4" /> Cancel
             </AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleDeleteUser}
-              className="gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={handleForceLogout}
+              className="gap-2 bg-orange-600 hover:bg-orange-700 text-white"
             >
-              <Trash2 className="h-4 w-4" /> Delete User
+              <LogOut className="h-4 w-4" /> Force Logout
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Modal */}
+      <AlertDialog 
+        open={!!deletingUser} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingUser(null);
+            setDeletePassword("");
+            setDeleteError(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Remove User: {deletingUser?.email}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 pt-2">
+                <p>
+                  Are you sure you want to permanently remove this user? This action cannot be undone.
+                </p>
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 rounded-md text-sm border border-red-200 dark:border-red-800">
+                  <strong>Security Verification:</strong> Please enter your password to confirm this deletion.
+                </div>
+                <div className="space-y-2">
+                  <Input 
+                    type="password" 
+                    placeholder="Enter your password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    className="w-full"
+                  />
+                  {deleteError && (
+                    <p className="text-sm text-destructive font-medium flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" /> {deleteError}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="gap-2">
+              <X className="h-4 w-4" /> Cancel
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={isVerifying || !deletePassword}
+              onClick={(e) => {
+                // Prevent default behavior if needed, usually Button in Footer doesn't auto-close unless it's AlertDialogAction
+                // calling handler directly
+                handleDeleteUser();
+              }}
+              className="gap-2"
+            >
+              {isVerifying ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Verifying...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" /> Delete User
+                </>
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

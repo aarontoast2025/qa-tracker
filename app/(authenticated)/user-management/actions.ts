@@ -474,6 +474,37 @@ export async function sendPasswordReset(email: string) {
   }
 }
 
+export async function forceLogoutUser(userId: string) {
+  try {
+    // Check Permission
+    const canForceLogout = await hasPermission('users.forcelogout');
+    if (!canForceLogout) return { error: "You do not have permission to force logout users." };
+
+    // Check Safety (prevent modifying Admin)
+    const safety = await checkCanModifyUser(userId);
+    if (!safety.allowed) return { error: safety.error };
+
+    const supabase = createAdminClient();
+
+    // Use RPC to directly delete sessions from the database
+    // This is more reliable than the JS library's signOut which can have token parsing issues
+    const { error } = await supabase.rpc('delete_user_sessions', {
+      p_user_id: userId,
+    });
+
+    if (error) {
+      console.error('[forceLogoutUser] Error calling RPC:', error);
+      return { error: error.message };
+    }
+
+    console.log('[forceLogoutUser] Success - User sessions deleted:', userId);
+    revalidatePath("/user-management");
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "An unexpected error occurred." };
+  }
+}
+
 export async function deleteUser(userId: string) {
   try {
     // Check Permission

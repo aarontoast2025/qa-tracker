@@ -146,34 +146,34 @@ has_role('Admin'::text)
 (( SELECT auth.role() AS role) = 'authenticated'::text)
 ```
 
-#### 2. Admins can insert roles
+#### 2. Users with roles.add can insert roles
 - **Type**: INSERT
 - **Target Roles**: public (authenticated users)
 - **Policy Behavior**: Permissive
-- **Description**: Only admins can create new roles
+- **Description**: Users with 'roles.add' permission can create new roles
 - **SQL (WITH CHECK)**:
 ```sql
-has_role('Admin'::text)
+has_permission('roles.add')
 ```
 
-#### 3. Admins can update roles
+#### 3. Users with roles.update can update roles
 - **Type**: UPDATE
 - **Target Roles**: public (authenticated users)
 - **Policy Behavior**: Permissive
-- **Description**: Only admins can update roles
+- **Description**: Users with 'roles.update' permission can update roles
 - **SQL**:
 ```sql
-has_role('Admin'::text)
+has_permission('roles.update')
 ```
 
-#### 4. Admins can delete roles
+#### 4. Users with roles.delete can delete roles
 - **Type**: DELETE
 - **Target Roles**: public (authenticated users)
 - **Policy Behavior**: Permissive
-- **Description**: Only admins can delete roles
+- **Description**: Users with 'roles.delete' permission can delete roles
 - **SQL**:
 ```sql
-has_role('Admin'::text)
+has_permission('roles.delete')
 ```
 
 ---
@@ -194,35 +194,40 @@ has_role('Admin'::text)
 (( SELECT auth.role() AS role) = 'authenticated'::text)
 ```
 
-#### 2. Admins can insert role permissions
+#### 2. Users with roles.permission can insert role permissions
 - **Type**: INSERT
 - **Target Roles**: public (authenticated users)
 - **Policy Behavior**: Permissive
-- **Description**: Only admins can assign permissions to roles
+- **Description**: Users with 'roles.permission' can assign permissions to roles
 - **SQL (WITH CHECK)**:
 ```sql
-has_role('Admin'::text)
+has_permission('roles.permission')
 ```
 
-#### 3. Admins can update role permissions
+#### 3. Users with roles.permission can update role permissions
 - **Type**: UPDATE
 - **Target Roles**: public (authenticated users)
 - **Policy Behavior**: Permissive
-- **Description**: Only admins can update role permissions
+- **Description**: Users with 'roles.permission' can update role permissions
 - **SQL**:
 ```sql
-has_role('Admin'::text)
+has_permission('roles.permission')
 ```
 
-#### 4. Admins can delete role permissions
+#### 4. Users with roles.permission can delete role permissions
 - **Type**: DELETE
 - **Target Roles**: public (authenticated users)
 - **Policy Behavior**: Permissive
-- **Description**: Only admins can remove permissions from roles
+- **Description**: Users with 'roles.permission' can remove permissions from roles
 - **SQL**:
 ```sql
-has_role('Admin'::text)
+has_permission('roles.permission')
 ```
+
+### Atomic Updates (RPC)
+A database function `update_role_permissions_atomic` is used to safely update permissions in a single transaction. This prevents data loss where permissions could be deleted but not re-inserted due to an error.
+
+---
 
 ---
 
@@ -320,6 +325,24 @@ has_role('Admin'::text)
 has_role('Admin'::text)
 ```
 
+### Available Permissions (Reference)
+
+| Code | Name | Description |
+|------|------|-------------|
+| `users.delete` | Delete Users | Ability to permanently delete users and their data |
+| `users.invite` | Invite Users | Ability to send invitations to new users |
+| `users.account` | Manage User Accounts | Ability to update login email, system role, and send password resets |
+| `users.permission` | Manage User Permissions | Ability to assign granular permissions to users |
+| `users.suspend` | Suspend Users | Ability to suspend and unsuspend users |
+| `users.update` | Update User Details | Ability to update personal and employment details of other users |
+| `users.view` | View Users | Ability to see the list of users |
+| `users.forcelogout` | Force Logout Users | Ability to force logout users from all devices |
+| `roles.add` | Add Roles | Ability to create new roles |
+| `roles.delete` | Delete Roles | Ability to delete roles |
+| `roles.permission` | Manage Role Permissions | Ability to manage permissions assigned to roles |
+| `roles.update` | Update Roles | Ability to update role details |
+| `roles.view` | View Roles | Ability to see roles |
+
 ---
 
 ## cron.job Table
@@ -416,11 +439,14 @@ All policies in this application use **Permissive** behavior, meaning multiple S
 
 ### Custom Functions Used
 - `has_role(role_name text)`: Checks if the current user has a specific role
+- `has_permission(perm_code text)`: Checks if current user has a specific permission (via role or direct)
 - `get_my_role_id()`: Returns the role_id of the current user
 - `auth.uid()`: Returns the user ID of the currently authenticated user
 - `auth.role()`: Returns the role of the current session (e.g., 'authenticated', 'anon')
 - `storage.foldername(name)`: Extracts the folder path from a storage object name
 - `CURRENT_USER`: PostgreSQL function that returns the current database user
+- `update_role_permissions_atomic`: RPC for safe atomic updates of role permissions
+- `delete_user_sessions`: RPC for forcing user logout by clearing sessions
 
 ---
 
