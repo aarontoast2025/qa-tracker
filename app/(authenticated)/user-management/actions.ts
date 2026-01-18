@@ -38,21 +38,35 @@ export async function inviteUser(email: string, roleId?: string) {
     const supabase = createAdminClient();
     const supabaseServer = await createClient();
 
-    const { headers } = await import("next/headers");
-    const headersList = await headers();
-    let origin = headersList.get("origin");
+    // Get the origin from environment variable first (most reliable for production)
+    let origin: string = process.env.NEXT_PUBLIC_SITE_URL || "";
     
+    // Fallback to headers if env var not set
     if (!origin) {
-      const host = headersList.get("host");
-      const protocol = host?.includes("localhost") ? "http" : "https";
-      origin = `${protocol}://${host}`;
+      const { headers } = await import("next/headers");
+      const headersList = await headers();
+      const headerOrigin = headersList.get("origin");
+      
+      if (headerOrigin) {
+        origin = headerOrigin;
+      } else {
+        const host = headersList.get("host");
+        const protocol = host?.includes("localhost") ? "http" : "https";
+        origin = `${protocol}://${host || "localhost:3000"}`;
+      }
     }
     
+    // Final fallback
     if (!origin || origin.includes("null")) {
-      origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+      origin = "http://localhost:3000";
     }
 
+    // Remove trailing slash if present
+    origin = origin.replace(/\/$/, '');
+
     const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=invite`;
+    
+    console.log('[inviteUser] Redirect URL:', redirectUrl);
 
     // Check Permission
     const canInvite = await hasPermission('users.invite');
@@ -77,8 +91,11 @@ export async function inviteUser(email: string, roleId?: string) {
     });
 
     if (error) {
+      console.error('[inviteUser] Error:', error);
       return { error: error.message };
     }
+    
+    console.log('[inviteUser] Success - User invited:', data.user?.email);
 
     if (data.user) {
       if (roleId) {
@@ -178,25 +195,46 @@ export async function resendInvitation(email: string) {
         if (!safety.allowed) return { error: safety.error };
     }
 
-    const { headers } = await import("next/headers");
-    const headersList = await headers();
-    let origin = headersList.get("origin");
+    // Get the origin from environment variable first (most reliable for production)
+    let origin: string = process.env.NEXT_PUBLIC_SITE_URL || "";
     
+    // Fallback to headers if env var not set
     if (!origin) {
-      const host = headersList.get("host");
-      const protocol = host?.includes("localhost") ? "http" : "https";
-      origin = `${protocol}://${host}`;
+      const { headers } = await import("next/headers");
+      const headersList = await headers();
+      const headerOrigin = headersList.get("origin");
+      
+      if (headerOrigin) {
+        origin = headerOrigin;
+      } else {
+        const host = headersList.get("host");
+        const protocol = host?.includes("localhost") ? "http" : "https";
+        origin = `${protocol}://${host || "localhost:3000"}`;
+      }
     }
     
+    // Final fallback
     if (!origin || origin.includes("null")) {
-      origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+      origin = "http://localhost:3000";
     }
 
+    // Remove trailing slash if present
+    origin = origin.replace(/\/$/, '');
+
     const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=invite`;
+    
+    console.log('[resendInvitation] Redirect URL:', redirectUrl);
 
     const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: redirectUrl,
     });
+    
+    if (error) {
+      console.error('[resendInvitation] Error:', error);
+      return { error: error.message };
+    }
+    
+    console.log('[resendInvitation] Success - Invitation resent to:', email);
 
     revalidatePath("/user-management");
     return { success: true };
@@ -389,27 +427,46 @@ export async function sendPasswordReset(email: string) {
         if (!safety.allowed) return { error: safety.error };
     }
 
-    const { headers } = await import("next/headers");
-    const headersList = await headers();
-    let origin = headersList.get("origin");
+    // Get the origin from environment variable first (most reliable for production)
+    let origin: string = process.env.NEXT_PUBLIC_SITE_URL || "";
     
+    // Fallback to headers if env var not set
     if (!origin) {
-      const host = headersList.get("host");
-      const protocol = host?.includes("localhost") ? "http" : "https";
-      origin = `${protocol}://${host}`;
+      const { headers } = await import("next/headers");
+      const headersList = await headers();
+      const headerOrigin = headersList.get("origin");
+      
+      if (headerOrigin) {
+        origin = headerOrigin;
+      } else {
+        const host = headersList.get("host");
+        const protocol = host?.includes("localhost") ? "http" : "https";
+        origin = `${protocol}://${host || "localhost:3000"}`;
+      }
     }
     
+    // Final fallback
     if (!origin || origin.includes("null")) {
-      origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+      origin = "http://localhost:3000";
     }
 
-    const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=invite`;
+    // Remove trailing slash if present
+    origin = origin.replace(/\/$/, '');
+
+    const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=recovery`;
+    
+    console.log('[sendPasswordReset] Redirect URL:', redirectUrl);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl,
     });
 
-    if (error) return { error: error.message };
+    if (error) {
+      console.error('[sendPasswordReset] Error:', error);
+      return { error: error.message };
+    }
+    
+    console.log('[sendPasswordReset] Success - Password reset sent to:', email);
     return { success: true };
   } catch (error: any) {
     return { error: error.message || "An unexpected error occurred." };
