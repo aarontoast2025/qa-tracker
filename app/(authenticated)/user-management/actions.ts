@@ -88,6 +88,7 @@ export async function inviteUser(email: string, roleId?: string) {
 
     const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: redirectUrl,
+      data: { must_change_password: true },
     });
 
     if (error) {

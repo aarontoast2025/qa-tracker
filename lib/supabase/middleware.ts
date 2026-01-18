@@ -64,6 +64,20 @@ export async function updateSession(request: NextRequest) {
       url.searchParams.set("message", "Your account has been suspended. Please contact an administrator.");
       return NextResponse.redirect(url);
     }
+
+    // Check if user must change password (e.g. invited users)
+    if (user.user_metadata?.must_change_password) {
+      const isUpdatePasswordPage = request.nextUrl.pathname === "/auth/update-password";
+      const isSignOut = request.nextUrl.pathname.startsWith("/auth/sign-out"); // Assuming you might have a sign-out route or using client-side signOut
+      
+      // Allow access to update-password page and static assets/api (handled by matcher config usually, but good to be safe)
+      // We also verify it's not an auth callback/hook which might be needed.
+      if (!isUpdatePasswordPage && !isSignOut && !request.nextUrl.pathname.startsWith('/auth/callback')) {
+         const url = request.nextUrl.clone();
+         url.pathname = "/auth/update-password";
+         return NextResponse.redirect(url);
+      }
+    }
   }
 
   // Allow access to auth routes without authentication

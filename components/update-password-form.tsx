@@ -105,8 +105,11 @@ export function UpdatePasswordForm({
 
       const supabase = createClient();
 
-      // Update the password
-      const { error } = await supabase.auth.updateUser({ password });
+      // Update the password and clear the must_change_password flag
+      const { error } = await supabase.auth.updateUser({ 
+        password,
+        data: { must_change_password: false }
+      });
       if (error) throw error;
       
       // Sign out the user so they can log in with their new password
