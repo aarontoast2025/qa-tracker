@@ -33,6 +33,7 @@ import {
   IdCard,
   Filter,
   Trash2,
+  KeyRound,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -56,7 +57,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { InviteUserModal } from "./invite-user-modal";
 import { UserDetailsModal } from "./user-details-modal";
-import { suspendUser, resendInvitation, deleteUser } from "@/app/(authenticated)/user-management/actions";
+import { suspendUser, resendInvitation, deleteUser, sendPasswordReset } from "@/app/(authenticated)/user-management/actions";
 import { PresenceHeader } from "./presence-header";
 
 export interface UserManagementData {
@@ -189,6 +190,21 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
         u.id === user.id ? { ...u, status: "invited" as const } : u
       ));
       setMessage({ type: "success", text: "Invitation resent successfully." });
+    } else {
+      setMessage({ type: "error", text: result.error });
+    }
+    setLoading(null);
+  };
+
+  const handleSendPasswordReset = async (user: UserManagementData) => {
+    if (!user.email) return;
+
+    setLoading(user.id);
+    setMessage(null);
+    const result = await sendPasswordReset(user.email);
+
+    if (!result.error) {
+      setMessage({ type: "success", text: "Password reset email sent successfully." });
     } else {
       setMessage({ type: "error", text: result.error });
     }
@@ -410,6 +426,12 @@ export function UserManagement({ initialUsers, roles, currentUserPermissions }: 
                               {(user.status === "invited" || user.status === "expired") && currentUserPermissions.includes('users.invite') && (
                                 <DropdownMenuItem className="gap-2" onClick={() => handleResendInvite(user)}>
                                   <RefreshCw className="h-3.5 w-3.5" /> Resend Invite
+                                </DropdownMenuItem>
+                              )}
+
+                              {user.status === "active" && currentUserPermissions.includes('users.account') && (
+                                <DropdownMenuItem className="gap-2" onClick={() => handleSendPasswordReset(user)}>
+                                  <KeyRound className="h-3.5 w-3.5" /> Send Password Reset
                                 </DropdownMenuItem>
                               )}
                               

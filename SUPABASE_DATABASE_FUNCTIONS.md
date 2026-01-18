@@ -223,6 +223,15 @@ DECLARE
     is_actor_admin boolean;
     admin_role_id uuid;
 BEGIN
+    -- ✅ FIX: Allow service_role to bypass this trigger completely
+    IF current_setting('role', true) = 'service_role' THEN
+        IF TG_OP = 'DELETE' THEN
+            RETURN OLD;
+        ELSE
+            RETURN NEW;
+        END IF;
+    END IF;
+
     -- Get Admin Role ID
     SELECT id INTO admin_role_id FROM user_roles WHERE name = 'Admin';
     
@@ -419,56 +428,39 @@ This will create orphaned records that are difficult to clean up.
 
 **Always use the application's "Remove User" feature** in the User Management page.
 
-#### Current Implementation Issue:
-
-The current `deleteUser` function in `app/(authenticated)/user-management/actions.ts` only deletes from auth:
-
-```typescript
-// CURRENT (INCOMPLETE)
-const { error } = await supabase.auth.admin.deleteUser(userId);
-```
-
 #### Recommended Implementation:
+
+Thanks to the updated `protect_admin_profiles` trigger, the `service_role` can now directly delete users without complex workarounds.
 
 ```typescript
 // RECOMMENDED (COMPLETE)
 export async function deleteUser(userId: string) {
   try {
-    const supabase = createAdminClient();
-    
-    // 1. Temporarily disable the protection trigger
-    await supabase.rpc('execute_sql', {
-      sql: 'ALTER TABLE user_profiles DISABLE TRIGGER tr_protect_admin_profiles'
-    });
-    
-    // 2. Delete from user_profiles (this will CASCADE to related tables)
+    const supabase = createAdminClient(); // Uses service_role key
+
+    // 1. Delete from user_profiles FIRST (triggers CASCADE to related tables)
+    // The service_role key bypasses RLS and the updated protect_admin_profiles trigger
     const { error: profileError } = await supabase
       .from("user_profiles")
       .delete()
       .eq("id", userId);
-    
-    if (profileError) throw profileError;
-    
-    // 3. Delete from auth
+
+    if (profileError) {
+      console.error("Error deleting user profile:", profileError);
+      return { error: `Failed to delete user profile: ${profileError.message}` };
+    }
+
+    // 2. Delete from auth (removes login ability)
     const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-    
-    if (authError) throw authError;
-    
-    // 4. Re-enable the protection trigger
-    await supabase.rpc('execute_sql', {
-      sql: 'ALTER TABLE user_profiles ENABLE TRIGGER tr_protect_admin_profiles'
-    });
-    
+
+    if (authError) {
+      return { error: `User profile deleted but auth deletion failed: ${authError.message}` };
+    }
+
     revalidatePath("/user-management");
-    return { error: null };
+    return { success: true };
   } catch (error: any) {
-    // Make sure to re-enable trigger even on error
-    const supabase = createAdminClient();
-    await supabase.rpc('execute_sql', {
-      sql: 'ALTER TABLE user_profiles ENABLE TRIGGER tr_protect_admin_profiles'
-    });
-    
-    return { error: error.message };
+    return { error: error.message || "An unexpected error occurred." };
   }
 }
 ```
