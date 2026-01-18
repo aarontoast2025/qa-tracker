@@ -12,12 +12,30 @@ export async function GET(request: Request) {
     const supabase = await createClient();
 
     // Exchange the auth code for a user session
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (!error) {
-      // If successful, redirect the user to the intended page
-      // relying on the browser to handle the redirect to the correct origin
-      const forwardedHost = request.headers.get("x-forwarded-host"); // original origin before load balancer
+    if (!error && data.session) {
+      // Check if the user needs to set their password
+      // If they've never logged in before (new invite), redirect to update-password
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // If user has never signed in (invited user accepting invitation)
+      // Redirect them to password setup regardless of the 'next' parameter
+      if (user && !user.last_sign_in_at) {
+        const forwardedHost = request.headers.get("x-forwarded-host");
+        const isLocalEnv = process.env.NODE_ENV === "development";
+        
+        if (isLocalEnv) {
+          return NextResponse.redirect(`${requestUrl.origin}/auth/update-password`);
+        } else if (forwardedHost) {
+          return NextResponse.redirect(`https://${forwardedHost}/auth/update-password`);
+        } else {
+          return NextResponse.redirect(`${requestUrl.origin}/auth/update-password`);
+        }
+      }
+      
+      // If user has already set password, use the 'next' parameter
+      const forwardedHost = request.headers.get("x-forwarded-host");
       const isLocalEnv = process.env.NODE_ENV === "development";
       
       if (isLocalEnv) {
