@@ -45,7 +45,9 @@ function LoginContent({
     if (message) {
       setInfoMessage(message);
     }
+  }, [searchParams]);
 
+  useEffect(() => {
     // Check for hash parameters (implicit flow from Supabase)
     // This handles cases where the redirect_to URL was stripped or invalid,
     // causing the user to land on the home page and get redirected here.
@@ -56,7 +58,7 @@ function LoginContent({
     if (accessToken && (type === 'invite' || type === 'recovery')) {
        router.push(`/auth/update-password${window.location.hash}`);
     }
-  }, [searchParams, router]);
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
