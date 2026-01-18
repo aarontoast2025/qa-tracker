@@ -38,8 +38,11 @@ export async function inviteUser(email: string, roleId?: string) {
     const supabase = createAdminClient();
     const supabaseServer = await createClient();
 
-    // Get the origin from environment variable first (most reliable for production)
-    let origin: string = process.env.NEXT_PUBLIC_SITE_URL || "";
+    // Get the origin - try multiple sources
+    // 1. Server-side env var (for production)
+    // 2. Public env var (build-time)
+    // 3. Headers (runtime fallback)
+    let origin: string = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
     
     // Fallback to headers if env var not set
     if (!origin) {
@@ -66,6 +69,7 @@ export async function inviteUser(email: string, roleId?: string) {
 
     const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=invite`;
     
+    console.log('[inviteUser] Origin source:', process.env.SITE_URL ? 'SITE_URL' : process.env.NEXT_PUBLIC_SITE_URL ? 'NEXT_PUBLIC_SITE_URL' : 'headers');
     console.log('[inviteUser] Redirect URL:', redirectUrl);
 
     // Check Permission
@@ -195,8 +199,8 @@ export async function resendInvitation(email: string) {
         if (!safety.allowed) return { error: safety.error };
     }
 
-    // Get the origin from environment variable first (most reliable for production)
-    let origin: string = process.env.NEXT_PUBLIC_SITE_URL || "";
+    // Get the origin - try multiple sources
+    let origin: string = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
     
     // Fallback to headers if env var not set
     if (!origin) {
@@ -223,6 +227,7 @@ export async function resendInvitation(email: string) {
 
     const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=invite`;
     
+    console.log('[resendInvitation] Origin source:', process.env.SITE_URL ? 'SITE_URL' : process.env.NEXT_PUBLIC_SITE_URL ? 'NEXT_PUBLIC_SITE_URL' : 'headers');
     console.log('[resendInvitation] Redirect URL:', redirectUrl);
 
     const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
@@ -427,8 +432,8 @@ export async function sendPasswordReset(email: string) {
         if (!safety.allowed) return { error: safety.error };
     }
 
-    // Get the origin from environment variable first (most reliable for production)
-    let origin: string = process.env.NEXT_PUBLIC_SITE_URL || "";
+    // Get the origin - try multiple sources
+    let origin: string = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
     
     // Fallback to headers if env var not set
     if (!origin) {
@@ -455,6 +460,7 @@ export async function sendPasswordReset(email: string) {
 
     const redirectUrl = `${origin}/auth/callback?next=/auth/update-password&flow=recovery`;
     
+    console.log('[sendPasswordReset] Origin source:', process.env.SITE_URL ? 'SITE_URL' : process.env.NEXT_PUBLIC_SITE_URL ? 'NEXT_PUBLIC_SITE_URL' : 'headers');
     console.log('[sendPasswordReset] Redirect URL:', redirectUrl);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
