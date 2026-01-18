@@ -140,6 +140,34 @@ export function UpdatePasswordForm({
     );
   }
 
+  if (!hasSession) {
+    return (
+      <div className={cn("flex flex-col gap-6", className)} {...props}>
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2 font-bold text-2xl">
+            <img src="/logo-black.png" alt="QA Logo" className="h-12 w-auto dark:hidden" />
+            <img src="/logo-white.png" alt="QA Logo" className="h-12 w-auto hidden dark:block" />
+            <span>Tracker</span>
+          </div>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-center text-destructive">Unable to Verify</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error || "Your session is invalid or has expired. Please click the invitation link in your email again."}
+            </div>
+            <Button onClick={() => router.push("/auth/login")} variant="outline" className="w-full">
+              Back to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <div className="flex flex-col items-center gap-2">
