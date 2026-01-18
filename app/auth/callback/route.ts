@@ -2,13 +2,54 @@ import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
-  // The `request` object gives us access to the URL and query parameters
   const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get("code");
+  const token_hash = requestUrl.searchParams.get("token_hash");
+  const type = requestUrl.searchParams.get("type");
   const next = requestUrl.searchParams.get("next") ?? "/";
+  const code = requestUrl.searchParams.get("code");
 
+  // Handle token_hash flow (from email template)
+  if (token_hash && type) {
+    const supabase = await createClient();
+    
+    console.log('[callback] Verifying token_hash for type:', type);
+    
+    // Verify the token hash
+    const { data, error } = await supabase.auth.verifyOtp({
+      token_hash,
+      type: type as any,
+    });
+
+    console.log('[callback] Verification result:', { 
+      hasSession: !!data?.session, 
+      hasUser: !!data?.user,
+      error: error?.message 
+    });
+
+    if (error) {
+      console.error('[callback] Token verification error:', error);
+      return NextResponse.redirect(`${requestUrl.origin}/auth/error?message=${encodeURIComponent(error.message)}`);
+    }
+
+    if (data.session) {
+      // For invite type, redirect to password setup
+      if (type === 'invite') {
+        console.log('[callback] Redirecting to password setup for invite');
+        return NextResponse.redirect(`${requestUrl.origin}/auth/update-password`);
+      }
+      
+      // For other types, redirect to next parameter
+      console.log('[callback] Redirecting to:', next);
+      return NextResponse.redirect(`${requestUrl.origin}${next}`);
+    }
+    
+    // If no session but no error, something unexpected happened
+    console.error('[callback] No session created but no error returned');
+    return NextResponse.redirect(`${requestUrl.origin}/auth/error?message=No session created`);
+  }
+
+  // Handle code flow (OAuth/PKCE)
   if (code) {
-    // Create a Supabase client capable of setting cookies
     const supabase = await createClient();
 
     // Exchange the auth code for a user session
@@ -18,53 +59,23 @@ export async function GET(request: Request) {
       const flow = requestUrl.searchParams.get("flow");
       
       // If this is an invite flow, force redirect to password setup
-      // This is more reliable than checking last_sign_in_at which might be updated immediately
       if (flow === 'invite') {
-        const forwardedHost = request.headers.get("x-forwarded-host");
-        const isLocalEnv = process.env.NODE_ENV === "development";
-        
-        if (isLocalEnv) {
-          return NextResponse.redirect(`${requestUrl.origin}/auth/update-password`);
-        } else if (forwardedHost) {
-          return NextResponse.redirect(`https://${forwardedHost}/auth/update-password`);
-        } else {
-          return NextResponse.redirect(`${requestUrl.origin}/auth/update-password`);
-        }
+        return NextResponse.redirect(`${requestUrl.origin}/auth/update-password`);
       }
 
       // Check if the user needs to set their password
-      // If they've never logged in before (new invite), redirect to update-password
       const { data: { user } } = await supabase.auth.getUser();
       
       // If user has never signed in (invited user accepting invitation)
-      // Redirect them to password setup regardless of the 'next' parameter
       if (user && !user.last_sign_in_at) {
-        const forwardedHost = request.headers.get("x-forwarded-host");
-        const isLocalEnv = process.env.NODE_ENV === "development";
-        
-        if (isLocalEnv) {
-          return NextResponse.redirect(`${requestUrl.origin}/auth/update-password`);
-        } else if (forwardedHost) {
-          return NextResponse.redirect(`https://${forwardedHost}/auth/update-password`);
-        } else {
-          return NextResponse.redirect(`${requestUrl.origin}/auth/update-password`);
-        }
+        return NextResponse.redirect(`${requestUrl.origin}/auth/update-password`);
       }
       
       // If user has already set password, use the 'next' parameter
-      const forwardedHost = request.headers.get("x-forwarded-host");
-      const isLocalEnv = process.env.NODE_ENV === "development";
-      
-      if (isLocalEnv) {
-        return NextResponse.redirect(`${requestUrl.origin}${next}`);
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`);
-      } else {
-        return NextResponse.redirect(`${requestUrl.origin}${next}`);
-      }
+      return NextResponse.redirect(`${requestUrl.origin}${next}`);
     }
   }
 
-  // If there's no code or an error occurred, redirect to an error page
+  // If there's no code/token or an error occurred, redirect to error page
   return NextResponse.redirect(`${requestUrl.origin}/auth/error`);
 }
