@@ -50,7 +50,7 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
           groupName: structure.find(g => g.items.some(i => i.id === item.id))?.title,
           label: item.question_text,
           answer: option?.label || null,
-          index: item.order_index + 1 // Matching the 1-based indexing often used in automation
+          index: item.order_index // Use the order_index directly from the database
         };
       });
 
