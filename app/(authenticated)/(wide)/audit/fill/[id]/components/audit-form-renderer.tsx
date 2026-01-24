@@ -1,10 +1,7 @@
-"use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AuditGroup, AuditItem, AuditItemOption } from "@/app/(authenticated)/(standard)/audit/types";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
     Select, 
     SelectContent, 
@@ -13,7 +10,8 @@ import {
     SelectValue 
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AuditFormRendererProps {
@@ -22,7 +20,6 @@ interface AuditFormRendererProps {
 
 export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
   const [answers, setAnswers] = useState<Record<string, string>>(() => {
-    // Initialize with defaults
     const initial: Record<string, string> = {};
     structure.forEach(group => {
       group.items.forEach(item => {
@@ -35,24 +32,36 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
     return initial;
   });
 
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (itemId: string) => {
+    setExpandedItems(prev => ({ ...prev, [itemId]: !prev[itemId] }));
+  };
+
+  const toggleCheck = (itemId: string, checked: boolean) => {
+    setCheckedItems(prev => ({ ...prev, [itemId]: checked }));
+  };
+
   const handleAnswerChange = (itemId: string, optionId: string) => {
     setAnswers(prev => ({ ...prev, [itemId]: optionId }));
   };
 
   const handleGenerate = () => {
     if (window.opener) {
-      // Find the items in our structure to send their labels/values
-      const automationData = structure.flatMap(g => g.items).map(item => {
-        const selectedOptionId = answers[item.id];
-        const option = item.options?.find(o => o.id === selectedOptionId);
-        return {
-          id: item.id,
-          groupName: structure.find(g => g.items.some(i => i.id === item.id))?.title,
-          fullQuestion: item.question_text,
-          answer: option?.label || null,
-          index: item.order_index
-        };
-      });
+      const automationData = structure.flatMap(g => g.items)
+        .filter(item => checkedItems[item.id]) // Only send checked items
+        .map(item => {
+          const selectedOptionId = answers[item.id];
+          const option = item.options?.find(o => o.id === selectedOptionId);
+          return {
+            id: item.id,
+            groupName: structure.find(g => g.items.some(i => i.id === item.id))?.title,
+            fullQuestion: item.question_text,
+            answer: option?.label || null,
+            index: item.order_index
+          };
+        });
 
       window.opener.postMessage({
         type: 'AUTOMATE_PAGE',
@@ -61,86 +70,114 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
     }
   };
 
+  const getOptionStyle = (option: AuditItemOption, isSelected: boolean) => {
+    if (!isSelected) return "bg-white border-gray-200 text-gray-600 hover:bg-gray-50";
+    
+    switch (option.color) {
+      case 'success':
+        return "bg-green-100 border-green-500 text-green-700 shadow-sm";
+      case 'destructive':
+        return "bg-red-100 border-red-500 text-red-700 shadow-sm";
+      default:
+        return "bg-primary/10 border-primary text-primary shadow-sm";
+    }
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 pb-20">
       {structure.map((group) => (
-        <div key={group.id} className="space-y-4">
-          <h2 className="text-xl font-semibold border-b pb-2 flex items-center gap-2">
-            <span className="bg-primary/10 text-primary w-8 h-8 rounded-full flex items-center justify-center text-sm">
-              {group.order_index + 1}
-            </span>
+        <div key={group.id} className="space-y-3">
+          <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-1">
             {group.title}
           </h2>
           
-          <div className="space-y-4">
+          <div className="space-y-2">
             {group.items.map((item) => (
               <Card key={item.id} className={cn(
-                "transition-all border-l-4",
-                answers[item.id] ? "border-l-primary/50" : "border-l-muted"
+                "transition-all border shadow-none",
+                checkedItems[item.id] ? "border-primary/30 bg-primary/5" : "border-gray-200"
               )}>
-                <CardContent className="pt-6">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-start gap-4">
-                        <Label className="text-base font-medium leading-tight">
-                            {item.short_name || item.question_text}
-                            {item.is_required && <span className="text-destructive ml-1">*</span>}
-                        </Label>
-                    </div>
+                <div 
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                  onClick={() => toggleExpand(item.id)}
+                >
+                  <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox 
+                      id={`check-${item.id}`}
+                      checked={checkedItems[item.id] || false}
+                      onCheckedChange={(checked) => toggleCheck(item.id, !!checked)}
+                    />
+                    <Label 
+                      htmlFor={`check-${item.id}`}
+                      className="text-sm font-bold cursor-pointer uppercase tracking-tight"
+                    >
+                      {item.short_name || item.question_text}
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {answers[item.id] && (
+                        <span className="text-[10px] font-bold text-primary/70 bg-primary/10 px-2 py-0.5 rounded uppercase">
+                            {item.options?.find(o => o.id === answers[item.id])?.label}
+                        </span>
+                    )}
+                    {expandedItems[item.id] ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                  </div>
+                </div>
 
-                    {item.item_type === 'dropdown_custom' ? (
-                      <Select 
-                        value={answers[item.id]} 
-                        onValueChange={(val) => handleAnswerChange(item.id, val)}
-                      >
-                        <SelectTrigger className="w-full md:w-[300px]">
-                          <SelectValue placeholder="Select an answer..." />
-                        </SelectTrigger>
-                        <SelectContent>
+                {expandedItems[item.id] && (
+                  <CardContent className="pt-0 pb-4 px-3 border-t bg-white/50">
+                    <div className="pt-4 space-y-4">
+                      <p className="text-xs text-muted-foreground italic mb-3">
+                        {item.question_text}
+                      </p>
+                      
+                      {item.item_type === 'dropdown_custom' ? (
+                        <Select 
+                          value={answers[item.id]} 
+                          onValueChange={(val) => handleAnswerChange(item.id, val)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select an answer..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {item.options?.map((opt) => (
+                              <SelectItem key={opt.id} value={opt.id}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
                           {item.options?.map((opt) => (
-                            <SelectItem key={opt.id} value={opt.id}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <RadioGroup 
-                        value={answers[item.id]} 
-                        onValueChange={(val) => handleAnswerChange(item.id, val)}
-                        className="flex flex-wrap gap-4"
-                      >
-                        {item.options?.map((opt) => (
-                          <div key={opt.id} className="flex items-center space-x-2">
-                            <RadioGroupItem value={opt.id} id={opt.id} />
-                            <Label 
-                              htmlFor={opt.id}
+                            <button
+                              key={opt.id}
+                              onClick={() => handleAnswerChange(item.id, opt.id)}
                               className={cn(
-                                "cursor-pointer px-3 py-1.5 rounded-md border transition-colors",
-                                answers[item.id] === opt.id 
-                                    ? "bg-primary/10 border-primary text-primary" 
-                                    : "hover:bg-muted"
+                                "flex-1 min-w-[60px] py-2 px-3 text-xs font-bold rounded-md border transition-all uppercase tracking-wider",
+                                getOptionStyle(opt, answers[item.id] === opt.id)
                               )}
                             >
                               {opt.label}
-                            </Label>
-                          </div>
-                        ))}
-                      </RadioGroup>
-                    )}
-                  </div>
-                </CardContent>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                )}
               </Card>
             ))}
           </div>
         </div>
       ))}
 
-      <div className="pt-6 border-t flex justify-end gap-3">
-        <Button variant="outline" size="lg" className="gap-2" onClick={handleGenerate}>
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t flex justify-end gap-3 shadow-lg">
+        <Button variant="outline" size="lg" className="gap-2 font-bold" onClick={handleGenerate}>
             <CheckCircle2 className="h-5 w-5" />
             Generate
         </Button>
-        <Button size="lg" className="gap-2 px-8">
+        <Button size="lg" className="gap-2 px-8 font-bold">
             <CheckCircle2 className="h-5 w-5" />
             Submit Audit
         </Button>
