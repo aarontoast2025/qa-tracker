@@ -6,8 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+interface TargetItem {
+  id: string;
+  group: string;
+  label: string;
+  selected: string | null;
+  comment: string;
+}
+
 export default function TestTargetPage() {
-  const [items, setItems] = useState([
+  const [items, setItems] = useState<TargetItem[]>([
     { id: "1", group: "Quality Standards", label: "Greeting", selected: null, comment: "" },
     { id: "2", group: "Quality Standards", label: "Tone", selected: null, comment: "" },
     { id: "3", group: "Quality Standards", label: "Name", selected: null, comment: "" },
