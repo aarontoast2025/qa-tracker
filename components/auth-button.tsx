@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "./ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { UserMenu } from "./user-menu";
+import { AuditMenu } from "./audit-menu";
 import { getMyPermissions } from "@/lib/supabase/permissions";
 
 export async function AuthButton() {
@@ -33,10 +34,13 @@ export async function AuthButton() {
   const firstName = profileResponse.data?.first_name || user.email?.split("@")[0] || "User";
 
   return (
-    <UserMenu 
-      email={user.email || ""} 
-      firstName={firstName} 
-      permissions={permissions} 
-    />
+    <div className="flex items-center gap-2">
+      <AuditMenu permissions={permissions} />
+      <UserMenu 
+        email={user.email || ""} 
+        firstName={firstName} 
+        permissions={permissions} 
+      />
+    </div>
   );
 }
