@@ -26,7 +26,7 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
     const initial: Record<string, string> = {};
     structure.forEach(group => {
       group.items.forEach(item => {
-        const defaultOpt = item.options.find(o => o.is_default);
+        const defaultOpt = item.options?.find(o => o.is_default);
         if (defaultOpt) {
           initial[item.id] = defaultOpt.id;
         }
@@ -74,7 +74,7 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
                           <SelectValue placeholder="Select an answer..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {item.options.map((opt) => (
+                          {item.options?.map((opt) => (
                             <SelectItem key={opt.id} value={opt.id}>
                               {opt.label}
                             </SelectItem>
@@ -87,7 +87,7 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
                         onValueChange={(val) => handleAnswerChange(item.id, val)}
                         className="flex flex-wrap gap-4"
                       >
-                        {item.options.map((opt) => (
+                        {item.options?.map((opt) => (
                           <div key={opt.id} className="flex items-center space-x-2">
                             <RadioGroupItem value={opt.id} id={opt.id} />
                             <Label 
