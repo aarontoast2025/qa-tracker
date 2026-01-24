@@ -48,9 +48,9 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
         return {
           id: item.id,
           groupName: structure.find(g => g.items.some(i => i.id === item.id))?.title,
-          label: item.question_text,
+          fullQuestion: item.question_text,
           answer: option?.label || null,
-          index: item.order_index // Use the order_index directly from the database
+          index: item.order_index
         };
       });
 
@@ -82,7 +82,7 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
                   <div className="space-y-4">
                     <div className="flex justify-between items-start gap-4">
                         <Label className="text-base font-medium leading-tight">
-                            {item.question_text}
+                            {item.short_name || item.question_text}
                             {item.is_required && <span className="text-destructive ml-1">*</span>}
                         </Label>
                     </div>
