@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { inviteUser } from "@/app/(authenticated)/user-management/actions";
+import { inviteUser } from "@/app/(authenticated)/(standard)/user-management/actions";
 import { Loader2, Mail, Shield, UserPlus, X, Send } from "lucide-react";
 
 interface Role {

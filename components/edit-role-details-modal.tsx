@@ -22,7 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { IconInput } from "@/components/icon-input";
 import { IconTextarea } from "@/components/icon-textarea";
-import { updateRoleDetails, deleteRole } from "@/app/(authenticated)/roles-permissions/actions";
+import { updateRoleDetails, deleteRole } from "@/app/(authenticated)/(standard)/roles-permissions/actions";
 import { Loader2, Settings, Calendar, Save, X, Shield, FileText, Trash2, AlertTriangle, Info } from "lucide-react";
 
 interface Role {

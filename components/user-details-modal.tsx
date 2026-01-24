@@ -56,7 +56,7 @@ import {
 } from "@/components/ui/select";
 import { UserProfile } from "./profile-form";
 import { UserManagementData } from "./user-management";
-import { getUserDetails, sendPasswordReset, updateUserProfile, updateUserAccount, updateUserDirectPermissions } from "@/app/(authenticated)/user-management/actions";
+import { getUserDetails, sendPasswordReset, updateUserProfile, updateUserAccount, updateUserDirectPermissions } from "@/app/(authenticated)/(standard)/user-management/actions";
 
 interface UserDetailsModalProps {
   userId: string | null;

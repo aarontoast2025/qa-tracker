@@ -32,7 +32,7 @@ export default async function ProtectedLayout({
             </div>
           </div>
         </nav>
-        <div className="flex-1 w-full flex flex-col gap-20 max-w-5xl p-5">
+        <div className="flex-1 w-full flex justify-center">
           {children}
         </div>
 

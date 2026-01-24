@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { updateRolePermissions } from "@/app/(authenticated)/roles-permissions/actions";
+import { updateRolePermissions } from "@/app/(authenticated)/(standard)/roles-permissions/actions";
 import { Loader2, Shield, ChevronDown, ChevronRight, Save, X, Lock } from "lucide-react";
 import * as React from "react";
 import { Badge } from "./ui/badge";

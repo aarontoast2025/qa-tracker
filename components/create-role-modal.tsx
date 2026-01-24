@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { IconInput } from "@/components/icon-input";
 import { IconTextarea } from "@/components/icon-textarea";
-import { createRole } from "@/app/(authenticated)/roles-permissions/actions";
+import { createRole } from "@/app/(authenticated)/(standard)/roles-permissions/actions";
 import { Loader2, ShieldCheck, Shield, FileText, Plus, X, Save } from "lucide-react";
 
 interface CreateRoleModalProps {

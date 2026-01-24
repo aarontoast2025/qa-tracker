@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { CircleUser, LogOut, User, Users, Shield } from "lucide-react";
+import { CircleUser, LogOut, User, Users, Shield, BookUser } from "lucide-react";
 
 interface UserMenuProps {
   email: string;
@@ -30,6 +30,7 @@ export function UserMenu({ email, firstName, permissions }: UserMenuProps) {
 
   const canAccessUsers = permissions.includes('users.view');
   const canAccessRoles = permissions.includes('roles.view');
+  const canAccessRoster = permissions.includes('roster.view');
 
   return (
     <DropdownMenu>
@@ -51,6 +52,13 @@ export function UserMenu({ email, firstName, permissions }: UserMenuProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         
+        {canAccessRoster && (
+          <DropdownMenuItem onClick={() => router.push("/roster")}>
+            <BookUser className="mr-2 h-4 w-4" />
+            <span>Roster</span>
+          </DropdownMenuItem>
+        )}
+
         {canAccessUsers && (
           <DropdownMenuItem onClick={() => router.push("/user-management")}>
             <Users className="mr-2 h-4 w-4" />

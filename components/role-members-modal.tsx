@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getUsersByRole } from "@/app/(authenticated)/roles-permissions/actions";
+import { getUsersByRole } from "@/app/(authenticated)/(standard)/roles-permissions/actions";
 import { Loader2, Users, Mail } from "lucide-react";
 
 interface User {

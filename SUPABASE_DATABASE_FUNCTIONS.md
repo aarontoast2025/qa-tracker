@@ -57,6 +57,7 @@ The following functions are defined in the `public` schema:
 | `protect_admin_profiles` | Trigger Function | trigger | Definer | **BLOCKS deletion of admin profiles** |
 | `send_email_bridge` | Function | jsonb | Definer | Forwards email events to Next.js API |
 | `update_role_permissions_atomic` | Function | void | Definer | Atomic update of role permissions to prevent data loss |
+| `update_modified_column` | Trigger Function | trigger | Definer | Automatically updates `updated_at` column |
 
 ### Complete SQL Definitions
 
@@ -507,6 +508,35 @@ $$;
 - Called by `updateRolePermissions` server action
 - Prevents data loss if the insert fails after delete
 
+---
+
+#### 10. `update_modified_column` Function
+
+**Purpose:** Trigger function that automatically updates the `updated_at` column to the current timestamp whenever a row is updated.
+
+**Return Type:** `trigger`
+
+**Security:** `SECURITY DEFINER`
+
+**Language:** `plpgsql`
+
+```sql
+CREATE OR REPLACE FUNCTION update_modified_column()
+RETURNS TRIGGER 
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW; 
+END;
+$$;
+```
+
+**Usage:**
+- Used as a trigger on tables like `roster_employees` to maintain accurate modification timestamps.
+- Defined with `SET search_path = public` to ensure security and prevent search path mutability issues.
 
 ---
 
@@ -789,6 +819,9 @@ USING (true);
 - Provided proper deletion process
 - Added foreign key relationship details
 - Documented RLS policy warning
+
+### 2024-01-XX - Roster Setup
+- Added `update_modified_column` function documentation
 
 ---
 

@@ -9,6 +9,7 @@ This document provides a comprehensive overview of all RLS policies currently im
 - [user_role_permissions Table](#user_role_permissions-table)
 - [user_direct_permissions Table](#user_direct_permissions-table)
 - [user_permissions Table](#user_permissions-table)
+- [roster_employees Table](#roster_employees-table)
 - [cron.job Table](#cronjob-table)
 - [cron.job_run_details Table](#cronjob_run_details-table)
 - [storage.objects Table](#storageobjects-table)
@@ -330,6 +331,58 @@ has_role('Admin'::text)
 | `roles.permission` | Manage Role Permissions | Ability to manage permissions assigned to roles |
 | `roles.update` | Update Roles | Ability to update role details |
 | `roles.view` | View Roles | Ability to see roles |
+| `roster.view` | View Roster | Ability to view the employee roster |
+| `roster.add` | Add Employee | Ability to add new employees to the roster |
+| `roster.update` | Update Employee | Ability to update employee details |
+| `roster.delete` | Delete Employee | Ability to remove employees from the roster |
+
+---
+
+## roster_employees Table
+
+**Purpose**: Stores employee details for the roster management system.
+
+### Policies
+
+#### 1. Users with roster.view can view employees
+- **Type**: SELECT
+- **Target Roles**: authenticated
+- **Policy Behavior**: Permissive
+- **Description**: Allows users with the 'roster.view' permission to view the employee roster.
+- **SQL**:
+```sql
+has_permission('roster.view')
+```
+
+#### 2. Users with roster.add can insert employees
+- **Type**: INSERT
+- **Target Roles**: authenticated
+- **Policy Behavior**: Permissive
+- **Description**: Allows users with the 'roster.add' permission to add new employees.
+- **SQL (WITH CHECK)**:
+```sql
+has_permission('roster.add')
+```
+
+#### 3. Users with roster.update can update employees
+- **Type**: UPDATE
+- **Target Roles**: authenticated
+- **Policy Behavior**: Permissive
+- **Description**: Allows users with the 'roster.update' permission to update employee details.
+- **SQL**:
+```sql
+has_permission('roster.update')
+```
+
+#### 4. Users with roster.delete can delete employees
+- **Type**: DELETE
+- **Target Roles**: authenticated
+- **Policy Behavior**: Permissive
+- **Description**: Allows users with the 'roster.delete' permission to remove employees from the roster.
+- **SQL**:
+```sql
+has_permission('roster.delete')
+```
 
 ---
 
@@ -454,3 +507,7 @@ When adding new policies:
 - ✅ Added "Basic profile info viewable for chat" policy to `user_profiles` table
 - This enables non-admin users to see the list of users in the chat widget
 - Existing profile page security remains intact
+
+### 2024-01-XX - Roster Feature
+- ✅ Added `roster_employees` table with full RLS support
+- ✅ Created `roster.view`, `roster.add`, `roster.update`, and `roster.delete` permissions

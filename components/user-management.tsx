@@ -59,7 +59,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { InviteUserModal } from "./invite-user-modal";
 import { UserDetailsModal } from "./user-details-modal";
-import { suspendUser, resendInvitation, deleteUser, sendPasswordReset, forceLogoutUser } from "@/app/(authenticated)/user-management/actions";
+import { suspendUser, resendInvitation, deleteUser, sendPasswordReset, forceLogoutUser } from "@/app/(authenticated)/(standard)/user-management/actions";
 import { PresenceHeader } from "./presence-header";
 
 export interface UserManagementData {
