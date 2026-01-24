@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,7 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
     return initial;
   });
 
+  const [feedback, setFeedback] = useState<Record<string, string>>({});
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
@@ -49,6 +51,10 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
     setAnswers(prev => ({ ...prev, [itemId]: optionId }));
   };
 
+  const handleFeedbackChange = (itemId: string, text: string) => {
+    setFeedback(prev => ({ ...prev, [itemId]: text }));
+  };
+
   const handleGenerate = () => {
     if (window.opener) {
       const automationData = structure.flatMap(g => g.items)
@@ -61,6 +67,7 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
             groupName: structure.find(g => g.items.some(i => i.id === item.id))?.title,
             fullQuestion: item.question_text,
             answer: option?.label || null,
+            feedback: feedback[item.id] || "",
             index: item.order_index
           };
         });
@@ -85,6 +92,25 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
     }
   };
 
+  const getHeaderStyle = (itemId: string) => {
+    const selectedOptionId = answers[itemId];
+    if (!selectedOptionId) return "hover:bg-gray-50/50";
+
+    const item = structure.flatMap(g => g.items).find(i => i.id === itemId);
+    const option = item?.options?.find(o => o.id === selectedOptionId);
+
+    if (!option) return "hover:bg-gray-50/50";
+
+    switch (option.color) {
+      case 'success':
+        return "bg-green-50 hover:bg-green-100/50";
+      case 'destructive':
+        return "bg-red-50 hover:bg-red-100/50";
+      default:
+        return "bg-blue-50 hover:bg-blue-100/50";
+    }
+  };
+
   return (
     <div className="space-y-6 pb-20">
       {structure.map((group) => (
@@ -96,11 +122,14 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
           <div className="space-y-2">
             {group.items.map((item) => (
               <Card key={item.id} className={cn(
-                "transition-all border shadow-none",
-                checkedItems[item.id] ? "border-primary/30 bg-primary/5" : "border-gray-200"
+                "transition-all border shadow-none overflow-hidden",
+                checkedItems[item.id] ? "border-primary/30 ring-1 ring-primary/10" : "border-gray-200"
               )}>
                 <div 
-                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                  className={cn(
+                    "flex items-center justify-between p-3 cursor-pointer transition-colors",
+                    getHeaderStyle(item.id)
+                  )}
                   onClick={() => toggleExpand(item.id)}
                 >
                   <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
@@ -129,7 +158,7 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
                 {expandedItems[item.id] && (
                   <CardContent className="pt-0 pb-4 px-3 border-t bg-white/50">
                     <div className="pt-4 space-y-4">
-                      <p className="text-xs text-muted-foreground italic mb-3">
+                      <p className="text-xs text-muted-foreground italic mb-1">
                         {item.question_text}
                       </p>
                       
@@ -165,6 +194,17 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
                           ))}
                         </div>
                       )}
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase font-bold text-gray-400">Feedback</Label>
+                        <Textarea 
+                          placeholder="Type your feedback here..."
+                          className="min-h-[60px] text-sm resize-y"
+                          rows={2}
+                          value={feedback[item.id] || ""}
+                          onChange={(e) => handleFeedbackChange(item.id, e.target.value)}
+                        />
+                      </div>
                     </div>
                   </CardContent>
                 )}
