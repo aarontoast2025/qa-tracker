@@ -18,15 +18,25 @@ javascript:(function(){
         if(e.data.type==='AUTOMATE_PAGE'){
             var items=e.data.data;
             items.forEach(function(item){
+                /* Find group container by looking at H2 headers */
                 var h2s=Array.from(document.querySelectorAll('h2'));
-                var h2=h2s.find(function(el){return el.textContent.trim().includes(item.groupName)});
+                var h2=h2s.find(function(el){return el.textContent.trim().toLowerCase()===item.groupName.toLowerCase()});
+                
+                /* Target either the specific container or the whole document as fallback */
                 var container=h2?h2.closest('.padding-xlarge')||h2.parentElement:document;
-                if(!container) return;
+                
+                /* Find item by its data-idx (1, 2, ... 10) */
                 var itemEl=container.querySelector('[data-idx="'+item.index+'"]');
                 if(!itemEl) return;
+
+                /* Click the button that matches the answer label exactly */
                 var buttons=Array.from(itemEl.querySelectorAll('button'));
-                var targetBtn=buttons.find(function(b){return b.textContent.trim().toLowerCase()===item.answer.toLowerCase()});
+                var targetBtn=buttons.find(function(b){
+                    return b.textContent.trim().toLowerCase()===item.answer.toLowerCase()
+                });
                 if(targetBtn) targetBtn.click();
+
+                /* Sync textarea */
                 var textarea=itemEl.querySelector('textarea');
                 if(textarea){
                     textarea.value=item.answer;

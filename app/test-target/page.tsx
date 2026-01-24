@@ -1,31 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 
 interface TargetItem {
   id: string;
   group: string;
   label: string;
+  options: string[];
   selected: string | null;
   comment: string;
 }
 
 export default function TestTargetPage() {
   const [items, setItems] = useState<TargetItem[]>([
-    { id: "1", group: "Quality Standards", label: "Greeting", selected: null, comment: "" },
-    { id: "2", group: "Quality Standards", label: "Tone", selected: null, comment: "" },
-    { id: "3", group: "Quality Standards", label: "Name", selected: null, comment: "" },
-    { id: "4", group: "Quality Standards", label: "Resolution", selected: null, comment: "" },
-    { id: "5", group: "Quality Standards", label: "Accuracy", selected: null, comment: "" },
-    { id: "6", group: "Call Metrics", label: "Complexity", selected: null, comment: "" },
-    { id: "7", group: "Call Metrics", label: "Mood", selected: null, comment: "" },
-    { id: "8", group: "Call Metrics", label: "Escalated", selected: null, comment: "" },
-    { id: "9", group: "Call Metrics", label: "Dead Air", selected: null, comment: "" },
-    { id: "10", group: "Call Metrics", label: "Status", selected: null, comment: "" },
+    { id: "1", group: "Quality Standards", label: "Greeting", options: ["Yes", "No", "N/A"], selected: null, comment: "" },
+    { id: "2", group: "Quality Standards", label: "Tone", options: ["Yes", "No", "N/A"], selected: null, comment: "" },
+    { id: "3", group: "Quality Standards", label: "Name", options: ["Yes", "No", "N/A"], selected: null, comment: "" },
+    { id: "4", group: "Quality Standards", label: "Resolution", options: ["Yes", "No", "N/A"], selected: null, comment: "" },
+    { id: "5", group: "Quality Standards", label: "Accuracy", options: ["Yes", "No", "N/A"], selected: null, comment: "" },
+    { id: "6", group: "Call Metrics", label: "Complexity", options: ["Low", "Medium", "High"], selected: null, comment: "" },
+    { id: "7", group: "Call Metrics", label: "Mood", options: ["Happy", "Neutral", "Upset"], selected: null, comment: "" },
+    { id: "8", group: "Call Metrics", label: "Escalated", options: ["Yes", "No", "N/A"], selected: null, comment: "" },
+    { id: "9", group: "Call Metrics", label: "Dead Air", options: ["Yes", "No", "N/A"], selected: null, comment: "" },
+    { id: "10", group: "Call Metrics", label: "Status", options: ["Resolved", "Pending", "Cancelled"], selected: null, comment: "" },
   ]);
 
   const handleSelect = (id: string, val: string) => {
@@ -49,14 +47,6 @@ export default function TestTargetPage() {
             <h4 className="font-semibold text-muted-foreground uppercase text-[10px]">Advocate Name</h4>
             <h2 className="text-lg font-semibold">John Doe</h2>
           </div>
-          <div>
-            <h4 className="font-semibold text-muted-foreground uppercase text-[10px]">DNIS</h4>
-            <div>+1 (800) 555-0199</div>
-          </div>
-          <div>
-            <h4 className="font-semibold text-muted-foreground uppercase text-[10px]">Call Duration</h4>
-            <div>342 seconds</div>
-          </div>
         </div>
       </div>
 
@@ -70,7 +60,7 @@ export default function TestTargetPage() {
                   <div className="flex justify-between items-center">
                     <Label className="font-semibold">{item.id}. {item.label}</Label>
                     <div data-testid="SegmentedControl" className="flex gap-1 bg-slate-100 p-1 rounded">
-                      {["Yes", "No", "N/A"].map((opt) => (
+                      {item.options.map((opt) => (
                         <button
                           key={opt}
                           onClick={() => handleSelect(item.id, opt)}
@@ -96,14 +86,6 @@ export default function TestTargetPage() {
             </div>
           </div>
         ))}
-      </div>
-      
-      <div className="mt-10 p-6 bg-blue-50 rounded-lg border border-blue-100">
-        <h3 className="font-bold text-blue-800 mb-2">Automation Status</h3>
-        <p className="text-sm text-blue-600">
-          This page is ready for the bookmarklet. When you click "Generate" in the popup window, 
-          the buttons and textareas above will be updated automatically.
-        </p>
       </div>
     </div>
   );
