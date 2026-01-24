@@ -79,7 +79,7 @@ export function EditItemModal({ isOpen, onClose, item, formId }: EditItemModalPr
                 is_required: required
             },
             localOptions.map((opt, index) => ({
-                id: opt.id?.startsWith('temp-') ? undefined : opt.id,
+                id: opt.id?.toString().startsWith('temp-') ? null : opt.id,
                 label: opt.label!,
                 value: opt.value!,
                 is_default: opt.is_default!,

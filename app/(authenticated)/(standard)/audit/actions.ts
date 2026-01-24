@@ -298,17 +298,35 @@ export async function syncItem(
 
     // Upsert remaining options
     if (options.length > 0) {
-        const optionsToUpsert = options.map((opt, index) => ({
+        // Separate options with IDs (updates) and without (inserts)
+        const toUpdate = options.filter(o => o.id).map((opt, index) => ({
             ...opt,
             item_id: itemId,
             order_index: index
         }));
-
-        const { error: upsertError } = await supabase
-            .from("tracker_audit_item_options")
-            .upsert(optionsToUpsert);
         
-        if (upsertError) return { error: upsertError.message };
+        const toInsert = options.filter(o => !o.id).map((opt, index) => {
+            const { id, ...rest } = opt;
+            return {
+                ...rest,
+                item_id: itemId,
+                order_index: options.findIndex(o => o === opt)
+            };
+        });
+
+        if (toUpdate.length > 0) {
+            const { error: updateError } = await supabase
+                .from("tracker_audit_item_options")
+                .upsert(toUpdate);
+            if (updateError) return { error: updateError.message };
+        }
+
+        if (toInsert.length > 0) {
+            const { error: insertError } = await supabase
+                .from("tracker_audit_item_options")
+                .insert(toInsert);
+            if (insertError) return { error: insertError.message };
+        }
     }
 
     revalidatePath(`/audit/form-builder/${formId}`);
