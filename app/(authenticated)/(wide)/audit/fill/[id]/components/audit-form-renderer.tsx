@@ -39,6 +39,28 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
     setAnswers(prev => ({ ...prev, [itemId]: optionId }));
   };
 
+  const handleGenerate = () => {
+    if (window.opener) {
+      // Find the items in our structure to send their labels/values
+      const automationData = structure.flatMap(g => g.items).map(item => {
+        const selectedOptionId = answers[item.id];
+        const option = item.options?.find(o => o.id === selectedOptionId);
+        return {
+          id: item.id,
+          groupName: structure.find(g => g.items.some(i => i.id === item.id))?.title,
+          label: item.question_text,
+          answer: option?.label || null,
+          index: item.order_index + 1 // Matching the 1-based indexing often used in automation
+        };
+      });
+
+      window.opener.postMessage({
+        type: 'AUTOMATE_PAGE',
+        data: automationData
+      }, '*');
+    }
+  };
+
   return (
     <div className="space-y-8">
       {structure.map((group) => (
@@ -113,7 +135,11 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
         </div>
       ))}
 
-      <div className="pt-6 border-t flex justify-end">
+      <div className="pt-6 border-t flex justify-end gap-3">
+        <Button variant="outline" size="lg" className="gap-2" onClick={handleGenerate}>
+            <CheckCircle2 className="h-5 w-5" />
+            Generate
+        </Button>
         <Button size="lg" className="gap-2 px-8">
             <CheckCircle2 className="h-5 w-5" />
             Submit Audit
