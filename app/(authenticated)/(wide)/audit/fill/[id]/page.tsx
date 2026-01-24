@@ -1,4 +1,4 @@
-import { getForm, getFormStructure } from "../../../../../(standard)/audit/actions";
+import { getForm, getFormStructure } from "@/app/(authenticated)/(standard)/audit/actions";
 import { notFound } from "next/navigation";
 import { AuditFormRenderer } from "./components/audit-form-renderer";
 
