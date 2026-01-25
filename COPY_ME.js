@@ -1,12 +1,12 @@
 /* === LOCAL DEVELOPMENT BOOKMARKLET === */
 /* Use this when running 'npm run dev' locally */
 javascript:(function(){
-    var w=500,h=800,l=(screen.width-w)/2,t=(screen.height-h)/2;
+    var w=600,h=800,l=(screen.width-w)/2,t=(screen.height-h)/2;
     var p=window.location.pathname;
     var parts=p.split('/');
     var bIdx=parts.indexOf('form-builder');
     var f=(bIdx!==-1&&parts[bIdx+1])?parts[bIdx+1]:'77777777-7777-7777-7777-777777777777';
-    var u='http://localhost:3000/embed/audit/'+f;
+    var u='http://localhost:3000/embed/audit/'+f+'?url='+encodeURIComponent(window.location.href);
     var popup=window.open(u,'QAForm','width='+w+',height='+h+',top='+t+',left='+l+',scrollbars=yes');
     if(!popup || popup.closed || typeof popup.closed=='undefined'){ alert('Popup Blocked!'); return; }
     window.removeEventListener('message', window.__qaBridge);
@@ -52,12 +52,12 @@ javascript:(function(){
 /* === PRODUCTION BOOKMARKLET === */
 /* Use this for the deployed vercel version */
 javascript:(function(){
-    var w=500,h=800,l=(screen.width-w)/2,t=(screen.height-h)/2;
+    var w=600,h=800,l=(screen.width-w)/2,t=(screen.height-h)/2;
     var p=window.location.pathname;
     var parts=p.split('/');
     var bIdx=parts.indexOf('form-builder');
     var f=(bIdx!==-1&&parts[bIdx+1])?parts[bIdx+1]:'77777777-7777-7777-7777-777777777777';
-    var u='https://qa-tracker-toast.vercel.app/embed/audit/'+f;
+    var u='https://qa-tracker-toast.vercel.app/embed/audit/'+f+'?url='+encodeURIComponent(window.location.href);
     var popup=window.open(u,'QAForm','width='+w+',height='+h+',top='+t+',left='+l+',scrollbars=yes');
     if(!popup || popup.closed || typeof popup.closed=='undefined'){ alert('Popup Blocked!'); return; }
     window.removeEventListener('message', window.__qaBridge);

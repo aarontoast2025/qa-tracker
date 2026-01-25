@@ -14,14 +14,55 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { IconInput } from "@/components/icon-input";
+import { IconTextarea } from "@/components/icon-textarea";
+import { 
+  CheckCircle2, 
+  ChevronDown, 
+  ChevronUp, 
+  Info, 
+  Loader2,
+  Hash,
+  User,
+  Phone,
+  FileText,
+  Clock,
+  Tag,
+  AlertCircle
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 interface AuditFormRendererProps {
   structure: (AuditGroup & { items: (AuditItem & { options: AuditItemOption[] })[] })[];
 }
 
 export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
+  const searchParams = useSearchParams();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [headerData, setHeaderData] = useState({
+      interaction_id: "",
+      advocate_name: "",
+      call_ani_dnis: "",
+      interaction_date: "",
+      evaluation_date: new Date().toISOString().split('T')[0],
+      case_number: "",
+      call_duration: "",
+      case_category: "",
+      issue_concern: "",
+      page_url: ""
+  });
+
+  useEffect(() => {
+      const urlParam = searchParams.get('url');
+      if (urlParam) {
+          setHeaderData(prev => ({ ...prev, page_url: urlParam }));
+      }
+  }, [searchParams]);
+
   const [answers, setAnswers] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     structure.forEach(group => {
@@ -133,6 +174,49 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
     }
   };
 
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    const supabase = createClient();
+    
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
+
+        // 1. Create Submission
+        const { data: submission, error: subError } = await supabase.from('audit_submissions').insert({
+            form_id: structure[0]?.form_id,
+            ...headerData,
+            submitted_by: user.id
+        }).select().single();
+
+        if (subError) throw subError;
+
+        // 2. Create Items
+        const itemsToInsert = structure.flatMap(g => g.items).map(item => {
+            const selectedOptionId = answers[item.id];
+            const option = item.options?.find(o => o.id === selectedOptionId);
+            return {
+                submission_id: submission.id,
+                item_id: item.id,
+                answer_id: selectedOptionId || null,
+                answer_text: option?.label || null,
+                feedback_text: feedback[item.id] || ""
+            };
+        });
+
+        const { error: itemsError } = await supabase.from('audit_submission_items').insert(itemsToInsert);
+
+        if (itemsError) throw itemsError;
+
+        toast.success("Audit submitted successfully!");
+    } catch (e: any) {
+        console.error(e);
+        toast.error("Error submitting audit: " + e.message);
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
   const getOptionStyle = (option: AuditItemOption, isSelected: boolean) => {
     if (!isSelected) return "bg-white border-gray-200 text-gray-600 hover:bg-gray-50";
     
@@ -171,6 +255,107 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
 
   return (
     <div className="space-y-6 pb-20">
+      <div className="space-y-4 mb-8 bg-white/50 p-4 rounded-lg border">
+        <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Audit Details</h2>
+        
+        <div className="grid grid-cols-3 gap-2">
+            <div>
+                <IconInput 
+                    icon={Hash} 
+                    label="Interaction ID" 
+                    placeholder="Interaction ID" 
+                    id="interaction_id" 
+                    value={headerData.interaction_id} 
+                    onChange={e => setHeaderData({...headerData, interaction_id: e.target.value})} 
+                    className="text-sm h-9"
+                />
+            </div>
+            <div>
+                <IconInput 
+                    icon={User} 
+                    label="Advocate Name"
+                    placeholder="Advocate Name" 
+                    id="advocate_name" 
+                    value={headerData.advocate_name} 
+                    onChange={e => setHeaderData({...headerData, advocate_name: e.target.value})} 
+                    className="text-sm h-9"
+                />
+            </div>
+            <div>
+                <IconInput 
+                    icon={Phone} 
+                    label="Call ANI/DNIS"
+                    placeholder="Call ANI/DNIS" 
+                    id="call_ani_dnis" 
+                    value={headerData.call_ani_dnis} 
+                    onChange={e => setHeaderData({...headerData, call_ani_dnis: e.target.value})} 
+                    className="text-sm h-9"
+                />
+            </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+                <Label htmlFor="interaction_date" className="text-xs text-muted-foreground">Date of Interaction</Label>
+                <Input type="date" id="interaction_date" value={headerData.interaction_date} onChange={e => setHeaderData({...headerData, interaction_date: e.target.value})} className="text-sm h-9" />
+            </div>
+            <div className="space-y-1">
+                <Label htmlFor="evaluation_date" className="text-xs text-muted-foreground">Date of Evaluation</Label>
+                <Input type="date" id="evaluation_date" value={headerData.evaluation_date} onChange={e => setHeaderData({...headerData, evaluation_date: e.target.value})} className="text-sm h-9" />
+            </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+            <div>
+                <IconInput 
+                    icon={FileText} 
+                    label="Case #"
+                    placeholder="Case #" 
+                    id="case_number" 
+                    value={headerData.case_number} 
+                    onChange={e => setHeaderData({...headerData, case_number: e.target.value})} 
+                    className="text-sm h-9"
+                />
+            </div>
+            <div>
+                <IconInput 
+                    icon={Clock} 
+                    label="Call Duration"
+                    placeholder="Call Duration" 
+                    id="call_duration" 
+                    value={headerData.call_duration} 
+                    onChange={e => setHeaderData({...headerData, call_duration: e.target.value})} 
+                    className="text-sm h-9"
+                />
+            </div>
+        </div>
+
+        <div>
+            <IconInput 
+                icon={Tag} 
+                label="Case Category"
+                placeholder="Case Category" 
+                id="case_category" 
+                value={headerData.case_category} 
+                onChange={e => setHeaderData({...headerData, case_category: e.target.value})} 
+                className="text-sm h-9"
+            />
+        </div>
+
+        <div>
+            <IconTextarea 
+                icon={AlertCircle}
+                label="Issue/Concern"
+                placeholder="Issue/Concern" 
+                id="issue_concern" 
+                value={headerData.issue_concern} 
+                onChange={e => setHeaderData({...headerData, issue_concern: e.target.value})} 
+                className="text-sm min-h-[80px] resize-y"
+                rows={3}
+            />
+        </div>
+      </div>
+
       {structure.map((group) => (
         <div key={group.id} className="space-y-3">
           <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-1">
@@ -293,14 +478,14 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
         </div>
       ))}
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t flex justify-end gap-3 shadow-lg">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t flex justify-end gap-3 shadow-lg z-10">
         <Button variant="outline" size="lg" className="gap-2 font-bold" onClick={handleGenerate}>
             <CheckCircle2 className="h-5 w-5" />
             Generate
         </Button>
-        <Button size="lg" className="gap-2 px-8 font-bold">
-            <CheckCircle2 className="h-5 w-5" />
-            Submit Audit
+        <Button size="lg" className="gap-2 px-8 font-bold" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
+            {isSubmitting ? "Submitting..." : "Submit Audit"}
         </Button>
       </div>
     </div>
