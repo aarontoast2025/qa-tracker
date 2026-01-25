@@ -44,6 +44,7 @@ interface AuditFormRendererProps {
 export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAutomating, setIsAutomating] = useState(false);
   const [existingRecordId, setExistingRecordId] = useState<string | null>(null);
   const [headerData, setHeaderData] = useState({
       interaction_id: "",
@@ -113,6 +114,10 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
                       if (data.transcript) {
                           setTranscript(data.transcript);
                       }
+                  }
+                  if (e.data.type === 'AUTOMATION_COMPLETE') {
+                      setIsAutomating(false);
+                      toast.success("Automation completed on host page!");
                   }
               });
 
@@ -255,6 +260,7 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
 
   const handleGenerate = (showToastOnSuccess = true) => {
     if (window.opener) {
+      setIsAutomating(true);
       const allItems = structure.flatMap(g => g.items);
       const hasChecked = allItems.some(item => checkedItems[item.id]);
       
@@ -653,18 +659,19 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
       ))}
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t flex justify-end gap-3 shadow-lg z-10">
-        <Button variant="outline" size="sm" className="font-bold h-9" onClick={() => window.close()}>
+        <Button variant="outline" size="sm" className="font-bold h-9" onClick={() => window.close()} disabled={isSubmitting || isAutomating}>
             Cancel
         </Button>
-        <Button variant="outline" size="sm" className="font-bold h-9 bg-green-50 text-green-700 border-green-200 hover:bg-green-100" onClick={handleSubmit} disabled={isSubmitting}>
+        <Button variant="outline" size="sm" className="font-bold h-9 bg-green-50 text-green-700 border-green-200 hover:bg-green-100" onClick={handleSubmit} disabled={isSubmitting || isAutomating}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Save
         </Button>
-        <Button variant="outline" size="sm" className="font-bold h-9 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" onClick={() => handleGenerate()}>
+        <Button variant="outline" size="sm" className="font-bold h-9 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" onClick={() => handleGenerate()} disabled={isSubmitting || isAutomating}>
+            {isAutomating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Generate
         </Button>
-        <Button size="sm" className="font-bold h-9 bg-primary px-6" onClick={handleSaveAndGenerate} disabled={isSubmitting}>
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+        <Button size="sm" className="font-bold h-9 bg-primary px-6" onClick={handleSaveAndGenerate} disabled={isSubmitting || isAutomating}>
+            {isSubmitting || isAutomating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Save & Generate
         </Button>
       </div>

@@ -41,7 +41,10 @@ javascript:(function(){
         if(e.data.type==='AUTOMATE_PAGE'){
             var items=e.data.data;
             var processItem = function(index) {
-                if (index >= items.length) return;
+                if (index >= items.length) {
+                    popup.postMessage({ type: 'AUTOMATION_COMPLETE' }, '*');
+                    return;
+                }
                 var item = items[index];
                 var h2s=Array.from(document.querySelectorAll('h2'));
                 var h2=h2s.find(function(el){return el.textContent.trim().toLowerCase()===item.groupName.toLowerCase()});
@@ -127,7 +130,10 @@ javascript:(function(){
         if(e.data.type==='AUTOMATE_PAGE'){
             var items=e.data.data;
             var processItem = function(index) {
-                if (index >= items.length) return;
+                if (index >= items.length) {
+                    popup.postMessage({ type: 'AUTOMATION_COMPLETE' }, '*');
+                    return;
+                }
                 var item = items[index];
                 var h2s=Array.from(document.querySelectorAll('h2'));
                 var h2=h2s.find(function(el){return el.textContent.trim().toLowerCase()===item.groupName.toLowerCase()});
