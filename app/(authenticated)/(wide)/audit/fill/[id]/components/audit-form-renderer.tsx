@@ -54,7 +54,7 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
       evaluation_date: new Date().toISOString().split('T')[0],
       case_number: "",
       call_duration: "",
-      case_category: "",
+      case_category: "Payroll > ",
       issue_concern: "",
       page_url: ""
   });

@@ -76,7 +76,7 @@ javascript:(function(){
                                 textarea.dispatchEvent(new Event('input',{bubbles:true}));
                             }
                             processItem(index + 1);
-                        }, 2500);
+                        }, 2000);
                     } else { processItem(index + 1); }
                 } else { processItem(index + 1); }
             };
@@ -165,7 +165,7 @@ javascript:(function(){
                                 textarea.dispatchEvent(new Event('input',{bubbles:true}));
                             }
                             processItem(index + 1);
-                        }, 2500);
+                        }, 2000);
                     } else { processItem(index + 1); }
                 } else { processItem(index + 1); }
             };
