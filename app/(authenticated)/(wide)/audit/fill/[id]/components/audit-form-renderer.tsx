@@ -29,7 +29,8 @@ import {
   FileText,
   Clock,
   Tag,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -43,6 +44,7 @@ interface AuditFormRendererProps {
 export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingRecordId, setExistingRecordId] = useState<string | null>(null);
   const [headerData, setHeaderData] = useState({
       interaction_id: "",
       advocate_name: "",
@@ -56,39 +58,140 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
       page_url: ""
   });
 
-  useEffect(() => {
-      const urlParam = searchParams.get('url');
-      if (urlParam) {
-          setHeaderData(prev => ({ ...prev, page_url: urlParam }));
-      }
-  }, [searchParams]);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [feedback, setFeedback] = useState<Record<string, string>>({});
+  const [transcript, setTranscript] = useState("");
+  const [isSummarizing, setIsSummarizing] = useState(false);
 
-  const [answers, setAnswers] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {};
+  // Initialize defaults only if no existing record
+  useEffect(() => {
+    if (existingRecordId) return;
+    
+    const initialAnswers: Record<string, string> = {};
+    const initialFeedback: Record<string, string> = {};
+    
     structure.forEach(group => {
       group.items.forEach(item => {
         const defaultOpt = item.options?.find(o => o.is_default);
         if (defaultOpt) {
-          initial[item.id] = defaultOpt.id;
+          initialAnswers[item.id] = defaultOpt.id;
+          const generalText = defaultOpt.feedback_general?.[0]?.feedback_text;
+          if (generalText) {
+            initialFeedback[item.id] = generalText;
+          }
         }
       });
     });
-    return initial;
-  });
+    setAnswers(initialAnswers);
+    setFeedback(initialFeedback);
+  }, [structure, existingRecordId]);
 
-  const [feedback, setFeedback] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {};
-    structure.forEach(group => {
-      group.items.forEach(item => {
-        const defaultOpt = item.options?.find(o => o.is_default);
-        const generalText = defaultOpt?.feedback_general?.[0]?.feedback_text;
-        if (generalText) {
-          initial[item.id] = generalText;
-        }
-      });
-    });
-    return initial;
-  });
+  useEffect(() => {
+      const urlParam = searchParams.get('url');
+      if (urlParam) {
+          setHeaderData(prev => ({ ...prev, page_url: urlParam }));
+          checkExistingRecord(urlParam);
+      }
+      
+      // Auto-populate from host page if running in popup
+      if (window.opener) {
+          try {
+              // We need to request data from the host page because we can't directly 
+              // access the DOM of the opener if it's on a different origin (CORS).
+              // However, since this is a bookmarklet context, the bookmarklet script 
+              // on the host page can send the data.
+              window.addEventListener('message', (e) => {
+                  if (e.data.type === 'HOST_PAGE_DATA') {
+                      const data = e.data.data;
+                      setHeaderData(prev => ({
+                          ...prev,
+                          interaction_id: data.interaction_id || prev.interaction_id,
+                          advocate_name: data.advocate_name || prev.advocate_name,
+                          call_ani_dnis: data.ani || data.dnis || prev.call_ani_dnis,
+                          call_duration: data.duration || prev.call_duration
+                      }));
+                      if (data.transcript) {
+                          setTranscript(data.transcript);
+                      }
+                  }
+              });
+
+              // Request data from bookmarklet
+              window.opener.postMessage({ type: 'REQUEST_HOST_DATA' }, '*');
+          } catch (err) {
+              console.error("Failed to communicate with host page", err);
+          }
+      }
+  }, [searchParams]);
+
+  const handleSummarize = async () => {
+      if (!transcript) {
+          toast.error("No transcript found to summarize.");
+          return;
+      }
+
+      setIsSummarizing(true);
+      try {
+          const response = await fetch('/api/summarize', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ transcript })
+          });
+
+          const data = await response.json();
+          if (data.summary) {
+              setHeaderData(prev => ({ ...prev, issue_concern: data.summary }));
+              toast.success("Summary generated!");
+          } else {
+              toast.error(data.error || "Failed to generate summary");
+          }
+      } catch (err) {
+          toast.error("Error calling summary API");
+      } finally {
+          setIsSummarizing(false);
+      }
+  };
+
+  const checkExistingRecord = async (url: string) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+          .from('audit_submissions')
+          .select('*, items:audit_submission_items(*)')
+          .eq('page_url', url)
+          .maybeSingle();
+
+      if (data) {
+          setExistingRecordId(data.id);
+          setHeaderData({
+              interaction_id: data.interaction_id || "",
+              advocate_name: data.advocate_name || "",
+              call_ani_dnis: data.call_ani_dnis || "",
+              interaction_date: data.interaction_date ? data.interaction_date.split('T')[0] : "",
+              evaluation_date: data.evaluation_date ? data.evaluation_date.split('T')[0] : new Date().toISOString().split('T')[0],
+              case_number: data.case_number || "",
+              call_duration: data.call_duration || "",
+              case_category: data.case_category || "",
+              issue_concern: data.issue_concern || "",
+              page_url: data.page_url || ""
+          });
+
+          const loadedAnswers: Record<string, string> = {};
+          const loadedFeedback: Record<string, string> = {};
+          const loadedTags: Record<string, string[]> = {};
+          data.items.forEach((item: any) => {
+              if (item.item_id) {
+                  loadedAnswers[item.item_id] = item.answer_id;
+                  loadedFeedback[item.item_id] = item.feedback_text;
+                  loadedTags[item.item_id] = item.selected_tags || [];
+              }
+          });
+          setAnswers(loadedAnswers);
+          setFeedback(loadedFeedback);
+          setSelectedTagIds(loadedTags);
+          
+          toast.info("Existing record found and loaded.");
+      }
+  };
   const [selectedTagIds, setSelectedTagIds] = useState<Record<string, string[]>>({});
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
@@ -150,19 +253,29 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
     setFeedback(prev => ({ ...prev, [itemId]: text }));
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = (showToastOnSuccess = true) => {
     if (window.opener) {
-      const automationData = structure.flatMap(g => g.items)
-        .filter(item => checkedItems[item.id]) // Only send checked items
-        .map(item => {
+      const allItems = structure.flatMap(g => g.items);
+      const hasChecked = allItems.some(item => checkedItems[item.id]);
+      
+      const itemsToProcess = hasChecked 
+        ? allItems.filter(item => checkedItems[item.id])
+        : allItems;
+
+      const automationData = itemsToProcess.map(item => {
           const selectedOptionId = answers[item.id];
           const option = item.options?.find(o => o.id === selectedOptionId);
+          const selectedTags = option?.feedback_tags
+            ?.filter(t => selectedTagIds[item.id]?.includes(t.id))
+            .map(t => t.tag_label) || [];
+            
           return {
             id: item.id,
             groupName: structure.find(g => g.items.some(i => i.id === item.id))?.title,
             fullQuestion: item.question_text,
             answer: option?.label || null,
             feedback: feedback[item.id] || "",
+            tags: selectedTags,
             index: item.order_index
           };
         });
@@ -171,6 +284,17 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
         type: 'AUTOMATE_PAGE',
         data: automationData
       }, '*');
+
+      if (showToastOnSuccess) {
+        toast.success("Automation started on host page!");
+      }
+    }
+  };
+
+  const handleSaveAndGenerate = async () => {
+    const success = await handleSubmit();
+    if (success) {
+      handleGenerate(false);
     }
   };
 
@@ -182,36 +306,77 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Not authenticated");
 
-        // 1. Create Submission
-        const { data: submission, error: subError } = await supabase.from('audit_submissions').insert({
-            form_id: structure[0]?.form_id,
-            ...headerData,
-            submitted_by: user.id
-        }).select().single();
+        let submissionId = existingRecordId;
 
-        if (subError) throw subError;
+        // 1. Create or Update Submission
+        if (existingRecordId) {
+            const { error: subError } = await supabase.from('audit_submissions').update({
+                ...headerData,
+                submitted_by: user.id
+            }).eq('id', existingRecordId);
+            if (subError) throw subError;
+        } else {
+            const { data: submission, error: subError } = await supabase.from('audit_submissions').insert({
+                form_id: structure[0]?.form_id,
+                ...headerData,
+                submitted_by: user.id
+            }).select().single();
+            if (subError) throw subError;
+            submissionId = submission.id;
+            setExistingRecordId(submissionId);
+        }
 
-        // 2. Create Items
-        const itemsToInsert = structure.flatMap(g => g.items).map(item => {
+        // 2. Sync Items
+        const allItems = structure.flatMap(g => g.items);
+        const hasChecked = allItems.some(item => checkedItems[item.id]);
+        
+        // If items are checked, we only update/insert those. 
+        // However, the current logic is delete-all-and-reinsert.
+        // To match user request: "If there are specific items that are checked, 
+        // then the save generate save&generate will be working on those checked items only."
+        // We need to decide if "working on" means "only these are saved to DB" 
+        // or "only these are updated".
+        
+        const itemsToProcess = hasChecked 
+            ? allItems.filter(item => checkedItems[item.id])
+            : allItems;
+
+        if (existingRecordId) {
+            // Only delete the items we are about to re-insert to avoid wiping others if checked
+            if (hasChecked) {
+                const itemIdsToProcess = itemsToProcess.map(i => i.id);
+                await supabase.from('audit_submission_items')
+                    .delete()
+                    .eq('submission_id', existingRecordId)
+                    .in('item_id', itemIdsToProcess);
+            } else {
+                const { error: delError } = await supabase.from('audit_submission_items').delete().eq('submission_id', existingRecordId);
+                if (delError) throw delError;
+            }
+        }
+
+        const itemsToInsert = itemsToProcess.map(item => {
             const selectedOptionId = answers[item.id];
             const option = item.options?.find(o => o.id === selectedOptionId);
             return {
-                submission_id: submission.id,
+                submission_id: submissionId,
                 item_id: item.id,
                 answer_id: selectedOptionId || null,
                 answer_text: option?.label || null,
-                feedback_text: feedback[item.id] || ""
+                feedback_text: feedback[item.id] || "",
+                selected_tags: selectedTagIds[item.id] || []
             };
         });
 
         const { error: itemsError } = await supabase.from('audit_submission_items').insert(itemsToInsert);
-
         if (itemsError) throw itemsError;
 
-        toast.success("Audit submitted successfully!");
+        toast.success(existingRecordId ? "Audit updated successfully!" : "Audit submitted successfully!");
+        return true;
     } catch (e: any) {
         console.error(e);
-        toast.error("Error submitting audit: " + e.message);
+        toast.error("Error saving audit: " + e.message);
+        return false;
     } finally {
         setIsSubmitting(false);
     }
@@ -262,7 +427,6 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
             <div>
                 <IconInput 
                     icon={Hash} 
-                    label="Interaction ID" 
                     placeholder="Interaction ID" 
                     id="interaction_id" 
                     value={headerData.interaction_id} 
@@ -273,7 +437,6 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
             <div>
                 <IconInput 
                     icon={User} 
-                    label="Advocate Name"
                     placeholder="Advocate Name" 
                     id="advocate_name" 
                     value={headerData.advocate_name} 
@@ -284,7 +447,6 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
             <div>
                 <IconInput 
                     icon={Phone} 
-                    label="Call ANI/DNIS"
                     placeholder="Call ANI/DNIS" 
                     id="call_ani_dnis" 
                     value={headerData.call_ani_dnis} 
@@ -309,7 +471,6 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
             <div>
                 <IconInput 
                     icon={FileText} 
-                    label="Case #"
                     placeholder="Case #" 
                     id="case_number" 
                     value={headerData.case_number} 
@@ -320,7 +481,6 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
             <div>
                 <IconInput 
                     icon={Clock} 
-                    label="Call Duration"
                     placeholder="Call Duration" 
                     id="call_duration" 
                     value={headerData.call_duration} 
@@ -333,7 +493,6 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
         <div>
             <IconInput 
                 icon={Tag} 
-                label="Case Category"
                 placeholder="Case Category" 
                 id="case_category" 
                 value={headerData.case_category} 
@@ -342,17 +501,32 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
             />
         </div>
 
-        <div>
+        <div className="relative">
             <IconTextarea 
                 icon={AlertCircle}
-                label="Issue/Concern"
                 placeholder="Issue/Concern" 
                 id="issue_concern" 
                 value={headerData.issue_concern} 
                 onChange={e => setHeaderData({...headerData, issue_concern: e.target.value})} 
-                className="text-sm min-h-[80px] resize-y"
+                className="text-sm min-h-[80px] resize-y pr-12"
                 rows={3}
             />
+            {transcript && (
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="absolute right-2 top-2 h-8 w-8 p-0 text-amber-500 hover:text-amber-600 hover:bg-amber-50"
+                    onClick={handleSummarize}
+                    disabled={isSummarizing}
+                    title="Generate Summary from Transcript"
+                >
+                    {isSummarizing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <Sparkles className="h-4 w-4" /> 
+                    )}
+                </Button>
+            )}
         </div>
       </div>
 
@@ -479,13 +653,19 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
       ))}
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t flex justify-end gap-3 shadow-lg z-10">
-        <Button variant="outline" size="lg" className="gap-2 font-bold" onClick={handleGenerate}>
-            <CheckCircle2 className="h-5 w-5" />
+        <Button variant="outline" size="sm" className="font-bold h-9" onClick={() => window.close()}>
+            Cancel
+        </Button>
+        <Button variant="outline" size="sm" className="font-bold h-9 bg-green-50 text-green-700 border-green-200 hover:bg-green-100" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Save
+        </Button>
+        <Button variant="outline" size="sm" className="font-bold h-9 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" onClick={() => handleGenerate()}>
             Generate
         </Button>
-        <Button size="lg" className="gap-2 px-8 font-bold" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
-            {isSubmitting ? "Submitting..." : "Submit Audit"}
+        <Button size="sm" className="font-bold h-9 bg-primary px-6" onClick={handleSaveAndGenerate} disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Save & Generate
         </Button>
       </div>
     </div>

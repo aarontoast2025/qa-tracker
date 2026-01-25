@@ -32,6 +32,12 @@ export function AuditMenu({ permissions }: AuditMenuProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {canViewAudit && (
+          <DropdownMenuItem onClick={() => router.push("/audit/records")}>
+            <ClipboardCheck className="mr-2 h-4 w-4" />
+            <span>Audit Records</span>
+          </DropdownMenuItem>
+        )}
         {canViewForms && (
           <DropdownMenuItem onClick={() => router.push("/audit/form-builder")}>
             <FilePlus className="mr-2 h-4 w-4" />

@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { LucideIcon, ChevronDown } from "lucide-react";
 
 interface IconInputProps extends React.ComponentProps<"input"> {
-  label: string;
+  label?: string;
   icon: LucideIcon;
   containerClassName?: string;
   list?: string;
@@ -14,8 +14,8 @@ interface IconInputProps extends React.ComponentProps<"input"> {
 const IconInput = React.forwardRef<HTMLInputElement, IconInputProps>(
   ({ className, containerClassName, label, icon: Icon, id, list, type, ...props }, ref) => {
     return (
-      <div className={cn("grid gap-2", containerClassName)}>
-        <Label htmlFor={id}>{label}</Label>
+      <div className={cn("grid gap-1.5", containerClassName)}>
+        {label && <Label htmlFor={id}>{label}</Label>}
         <div className="relative group">
           {/* Left Icon */}
           <div className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary z-10 pointer-events-none">
