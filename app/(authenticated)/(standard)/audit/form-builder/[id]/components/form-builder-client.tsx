@@ -339,9 +339,10 @@ export function FormBuilderClient({ form, initialStructure, permissions }: FormB
                                                                                                 variant="secondary"
                                                                                                 className={cn(
                                                                                                     "text-[10px] h-5 gap-1",
-                                                                                                    opt.color === 'success' && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                                                                                                    opt.color === 'destructive' && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-                                                                                                    opt.is_correct && "border-green-500/50"
+                                                                                                    opt.color === 'success' && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200",
+                                                                                                    opt.color === 'destructive' && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200",
+                                                                                                    opt.color === 'warning' && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200",
+                                                                                                    opt.is_correct && !opt.color && "border-green-500/50"
                                                                                                 )}
                                                                                             >
                                                                                                 {opt.label}

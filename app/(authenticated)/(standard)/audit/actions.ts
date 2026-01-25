@@ -32,6 +32,7 @@ export async function getForm(id: string) {
 
 export async function getFormStructure(formId: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   
   // Fetch groups
   const { data: groups, error: groupsError } = await supabase
@@ -60,13 +61,35 @@ export async function getFormStructure(formId: string) {
     .in("item_id", itemIds)
     .order("order_index");
     
+  if (optionsError) return groups;
+
+  // Fetch user feedback if logged in
+  let generalFeedback: any[] = [];
+  let feedbackTags: any[] = [];
+
+  if (user) {
+    const optionIds = options.map(o => o.id);
+    const [genRes, tagsRes] = await Promise.all([
+      supabase.from('feedback_general').select('*').in('option_id', optionIds).eq('user_id', user.id),
+      supabase.from('feedback_tags').select('*').in('option_id', optionIds).eq('user_id', user.id)
+    ]);
+    generalFeedback = genRes.data || [];
+    feedbackTags = tagsRes.data || [];
+  }
+
   // Nest data
   const structure = groups.map(group => {
     const groupItems = items
       .filter(item => item.group_id === group.id)
       .map(item => ({
         ...item,
-        options: options?.filter(opt => opt.item_id === item.id) || []
+        options: options
+          ?.filter(opt => opt.item_id === item.id)
+          .map(opt => ({
+            ...opt,
+            feedback_general: generalFeedback.filter(f => f.option_id === opt.id),
+            feedback_tags: feedbackTags.filter(f => f.option_id === opt.id)
+          })) || []
       }));
     return { ...group, items: groupItems };
   });
@@ -298,20 +321,25 @@ export async function syncItem(
 
     // Upsert remaining options
     if (options.length > 0) {
-        // Separate options with IDs (updates) and without (inserts)
-        const toUpdate = options.filter(o => o.id).map((opt, index) => ({
-            ...opt,
-            item_id: itemId,
-            order_index: index
-        }));
-        
-        const toInsert = options.filter(o => !o.id).map((opt, index) => {
-            const { id, ...rest } = opt;
+        // Ensure value is present for all options
+        const preparedOptions = options.map((opt, index) => {
+            const label = opt.label || "";
+            const value = opt.value || label.toLowerCase().replace(/\s/g, '_') || `opt_${index}`;
             return {
-                ...rest,
+                ...opt,
+                label,
+                value,
                 item_id: itemId,
-                order_index: options.findIndex(o => o === opt)
+                order_index: index
             };
+        });
+
+        // Separate options with IDs (updates) and without (inserts)
+        const toUpdate = preparedOptions.filter(o => o.id);
+        
+        const toInsert = preparedOptions.filter(o => !o.id).map(opt => {
+            const { id: _unused, ...rest } = opt;
+            return rest;
         });
 
         if (toUpdate.length > 0) {

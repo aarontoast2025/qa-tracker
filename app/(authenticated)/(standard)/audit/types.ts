@@ -48,6 +48,8 @@ export interface AuditItemOption {
   order_index: number;
   created_at: string;
   updated_at: string;
+  feedback_general?: { feedback_text: string }[];
+  feedback_tags?: { id: string; tag_label: string; feedback_text: string }[];
 }
 
 export type AuditItemOptionInput = Omit<AuditItemOption, 'id' | 'created_at' | 'updated_at'>;

@@ -145,6 +145,12 @@ export function EditItemModal({ isOpen, onClose, item, formId }: EditItemModalPr
     setNewOptionLabel("");
   };
 
+  const handleUpdateOptionColor = (optionId: string | undefined, newColor: string) => {
+    setLocalOptions(localOptions.map(opt => 
+        opt.id === optionId ? { ...opt, color: newColor } : opt
+    ));
+  };
+
   const handleUpdateOptionLabel = (optionId: string | undefined, newLabel: string) => {
       setLocalOptions(localOptions.map(opt => 
           opt.id === optionId 
@@ -254,8 +260,9 @@ export function EditItemModal({ isOpen, onClose, item, formId }: EditItemModalPr
                             <TableHeader className="bg-muted/50">
                                 <TableRow>
                                     <TableHead>Option Label</TableHead>
-                                    <TableHead className="w-[100px]">Status</TableHead>
-                                    <TableHead className="w-[100px]">Default</TableHead>
+                                    <TableHead className="w-[70px] text-center">Color</TableHead>
+                                    <TableHead className="w-[70px] text-center">Status</TableHead>
+                                    <TableHead className="w-[70px] text-center">Default</TableHead>
                                     <TableHead className="w-[50px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -274,42 +281,72 @@ export function EditItemModal({ isOpen, onClose, item, formId }: EditItemModalPr
                                             />
                                         </TableCell>
                                         <TableCell className="py-2">
-                                            <Button 
-                                                size="sm" 
-                                                variant="ghost" 
-                                                className={cn(
-                                                    "h-8 w-full justify-start gap-2 text-[10px] px-2",
-                                                    opt.is_correct ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-muted-foreground hover:text-foreground"
-                                                )}
-                                                onClick={() => handleToggleCorrect(opt.id)}
-                                            >
-                                                {opt.is_correct ? <CheckCircle2 className="h-3 w-3" /> : <div className="h-3 w-3 rounded-full border" />}
-                                                {opt.is_correct ? "Correct" : "Incorrect"}
-                                            </Button>
+                                            <div className="flex justify-center">
+                                                <Select 
+                                                    value={opt.color || 'default'} 
+                                                    onValueChange={(val) => handleUpdateOptionColor(opt.id, val)}
+                                                >
+                                                    <SelectTrigger className="h-8 w-10 px-0 flex justify-center border-none bg-transparent hover:bg-muted/50">
+                                                        <div className={cn(
+                                                            "w-4 h-4 rounded-full shadow-sm border",
+                                                            opt.color === 'success' && "bg-green-500 border-green-600",
+                                                            opt.color === 'destructive' && "bg-red-500 border-red-600",
+                                                            opt.color === 'warning' && "bg-amber-500 border-amber-600",
+                                                            (opt.color === 'default' || !opt.color) && "bg-gray-400 border-gray-500"
+                                                        )} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="default">Default (Gray)</SelectItem>
+                                                        <SelectItem value="success">Success (Green)</SelectItem>
+                                                        <SelectItem value="destructive">Destructive (Red)</SelectItem>
+                                                        <SelectItem value="warning">Warning (Amber)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
                                         </TableCell>
                                         <TableCell className="py-2">
-                                            <Button 
-                                                size="sm" 
-                                                variant="ghost" 
-                                                className={cn(
-                                                    "h-8 w-full justify-start gap-2 text-[10px] px-2",
-                                                    opt.is_default ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-muted-foreground hover:text-foreground"
-                                                )}
-                                                onClick={() => handleSetDefault(opt.id)}
-                                            >
-                                                {opt.is_default ? <Star className="h-3 w-3 fill-current" /> : <Star className="h-3 w-3" />}
-                                                {opt.is_default ? "Default" : "Set Default"}
-                                            </Button>
+                                            <div className="flex justify-center">
+                                                <Button 
+                                                    size="icon" 
+                                                    variant="ghost" 
+                                                    className={cn(
+                                                        "h-8 w-8",
+                                                        opt.is_correct ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-muted-foreground hover:bg-muted"
+                                                    )}
+                                                    onClick={() => handleToggleCorrect(opt.id)}
+                                                    title={opt.is_correct ? "Correct Answer" : "Incorrect Answer"}
+                                                >
+                                                    {opt.is_correct ? <CheckCircle2 className="h-5 w-5" /> : <div className="h-5 w-5 rounded-full border-2 border-current" />}
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                         <TableCell className="py-2">
-                                            <Button 
-                                                size="icon" 
-                                                variant="ghost" 
-                                                className="h-8 w-8 text-destructive" 
-                                                onClick={() => handleDeleteOption(opt.id)}
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
+                                            <div className="flex justify-center">
+                                                <Button 
+                                                    size="icon" 
+                                                    variant="ghost" 
+                                                    className={cn(
+                                                        "h-8 w-8",
+                                                        opt.is_default ? "text-amber-500 hover:text-amber-600 hover:bg-amber-50" : "text-muted-foreground hover:bg-muted"
+                                                    )}
+                                                    onClick={() => handleSetDefault(opt.id)}
+                                                    title={opt.is_default ? "Default Selection" : "Set as Default"}
+                                                >
+                                                    <Star className={cn("h-5 w-5", opt.is_default && "fill-current")} />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                            <div className="flex justify-center">
+                                                <Button 
+                                                    size="icon" 
+                                                    variant="ghost" 
+                                                    className="h-8 w-8 text-destructive hover:bg-destructive/10" 
+                                                    onClick={() => handleDeleteOption(opt.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -319,7 +356,7 @@ export function EditItemModal({ isOpen, onClose, item, formId }: EditItemModalPr
                                         <div className="relative">
                                             <Plus className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-primary/50" />
                                             <Input 
-                                                placeholder="Type here to add new option..." 
+                                                placeholder="Add new option..." 
                                                 value={newOptionLabel}
                                                 onChange={(e) => setNewOptionLabel(e.target.value)}
                                                 onKeyDown={(e) => e.key === 'Enter' && handleAddOption()}
@@ -328,8 +365,8 @@ export function EditItemModal({ isOpen, onClose, item, formId }: EditItemModalPr
                                             />
                                         </div>
                                     </TableCell>
-                                    <TableCell colSpan={3} className="text-[10px] text-primary/50 italic">
-                                        Press Enter to add (locally)
+                                    <TableCell colSpan={4} className="text-[10px] text-primary/50 italic text-right pr-4">
+                                        Press Enter to add
                                     </TableCell>
                                 </TableRow>
                             </TableBody>

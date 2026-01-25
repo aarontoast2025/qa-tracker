@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AuditFormRendererProps {
@@ -35,7 +35,20 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
     return initial;
   });
 
-  const [feedback, setFeedback] = useState<Record<string, string>>({});
+  const [feedback, setFeedback] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    structure.forEach(group => {
+      group.items.forEach(item => {
+        const defaultOpt = item.options?.find(o => o.is_default);
+        const generalText = defaultOpt?.feedback_general?.[0]?.feedback_text;
+        if (generalText) {
+          initial[item.id] = generalText;
+        }
+      });
+    });
+    return initial;
+  });
+  const [selectedTagIds, setSelectedTagIds] = useState<Record<string, string[]>>({});
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
@@ -49,6 +62,47 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
 
   const handleAnswerChange = (itemId: string, optionId: string) => {
     setAnswers(prev => ({ ...prev, [itemId]: optionId }));
+    setSelectedTagIds(prev => ({ ...prev, [itemId]: [] }));
+    
+    // Automatically populate general feedback if available
+    const item = structure.flatMap(g => g.items).find(i => i.id === itemId);
+    const option = item?.options?.find(o => o.id === optionId);
+    
+    const generalText = option?.feedback_general?.[0]?.feedback_text;
+    if (generalText) {
+      setFeedback(prev => ({ ...prev, [itemId]: generalText }));
+    } else {
+      setFeedback(prev => ({ ...prev, [itemId]: "" }));
+    }
+  };
+
+  const handleTagClick = (itemId: string, tag: { id: string, feedback_text: string }) => {
+    setSelectedTagIds(prev => {
+        const currentIds = prev[itemId] || [];
+        const isSelected = currentIds.includes(tag.id);
+        const newIds = isSelected 
+            ? currentIds.filter(id => id !== tag.id)
+            : [...currentIds, tag.id];
+        
+        // Re-calculate feedback text based on selected tags
+        const item = structure.flatMap(g => g.items).find(i => i.id === itemId);
+        const optionId = answers[itemId];
+        const option = item?.options?.find(o => o.id === optionId);
+        
+        if (newIds.length > 0) {
+            // Join feedback from all selected tags
+            const tagsFeedback = option?.feedback_tags
+                ?.filter(t => newIds.includes(t.id))
+                .map(t => t.feedback_text)
+                .join(" ");
+            setFeedback(f => ({ ...f, [itemId]: tagsFeedback || "" }));
+        } else {
+            // Revert to general feedback
+            setFeedback(f => ({ ...f, [itemId]: option?.feedback_general?.[0]?.feedback_text || "" }));
+        }
+
+        return { ...prev, [itemId]: newIds };
+    });
   };
 
   const handleFeedbackChange = (itemId: string, text: string) => {
@@ -87,6 +141,8 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
         return "bg-green-100 border-green-500 text-green-700 shadow-sm";
       case 'destructive':
         return "bg-red-100 border-red-500 text-red-700 shadow-sm";
+      case 'warning':
+        return "bg-amber-100 border-amber-500 text-amber-700 shadow-sm";
       default:
         return "bg-primary/10 border-primary text-primary shadow-sm";
     }
@@ -106,6 +162,8 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
         return "bg-green-50 hover:bg-green-100/50";
       case 'destructive':
         return "bg-red-50 hover:bg-red-100/50";
+      case 'warning':
+        return "bg-amber-50 hover:bg-amber-100/50";
       default:
         return "bg-blue-50 hover:bg-blue-100/50";
     }
@@ -147,9 +205,12 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
                   </div>
                   <div className="flex items-center gap-2">
                     {answers[item.id] && (
-                        <span className="text-[10px] font-bold text-primary/70 bg-primary/10 px-2 py-0.5 rounded uppercase">
-                            {item.options?.find(o => o.id === answers[item.id])?.label}
-                        </span>
+                        <div 
+                          className="text-primary/60 hover:text-primary transition-colors p-1"
+                          title={`Selected: ${item.options?.find(o => o.id === answers[item.id])?.label}`}
+                        >
+                            <Info className="h-4 w-4" />
+                        </div>
                     )}
                     {expandedItems[item.id] ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
                   </div>
@@ -158,10 +219,6 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
                 {expandedItems[item.id] && (
                   <CardContent className="pt-0 pb-4 px-3 border-t bg-white/50">
                     <div className="pt-4 space-y-4">
-                      <p className="text-xs text-muted-foreground italic mb-1">
-                        {item.question_text}
-                      </p>
-                      
                       {item.item_type === 'dropdown_custom' ? (
                         <Select 
                           value={answers[item.id]} 
@@ -195,8 +252,30 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
                         </div>
                       )}
 
+                      {/* Targeted Feedback Tags */}
+                      {answers[item.id] && item.options?.find(o => o.id === answers[item.id])?.feedback_tags?.length ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {item.options?.find(o => o.id === answers[item.id])?.feedback_tags?.map((tag: any) => {
+                            const isActive = selectedTagIds[item.id]?.includes(tag.id);
+                            return (
+                              <button
+                                key={tag.id}
+                                onClick={() => handleTagClick(item.id, tag)}
+                                className={cn(
+                                    "text-[10px] font-bold px-2 py-1 rounded transition-all uppercase tracking-tight border",
+                                    isActive 
+                                        ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                                        : "bg-secondary hover:bg-secondary/80 text-secondary-foreground border-transparent"
+                                )}
+                              >
+                                {isActive ? "✓" : "+"} {tag.tag_label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] uppercase font-bold text-gray-400">Feedback</Label>
                         <Textarea 
                           placeholder="Type your feedback here..."
                           className="min-h-[60px] text-sm resize-y"

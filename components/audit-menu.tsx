@@ -19,8 +19,9 @@ export function AuditMenu({ permissions }: AuditMenuProps) {
 
   const canViewAudit = permissions.includes('audit.view');
   const canViewForms = permissions.includes('form.view');
+  const canManageFeedback = permissions.includes('feedback.manage');
 
-  if (!canViewAudit && !canViewForms) return null;
+  if (!canViewAudit && !canViewForms && !canManageFeedback) return null;
 
   return (
     <DropdownMenu>
@@ -35,6 +36,12 @@ export function AuditMenu({ permissions }: AuditMenuProps) {
           <DropdownMenuItem onClick={() => router.push("/audit/form-builder")}>
             <FilePlus className="mr-2 h-4 w-4" />
             <span>Form Builder</span>
+          </DropdownMenuItem>
+        )}
+        {canManageFeedback && (
+          <DropdownMenuItem onClick={() => router.push("/audit/feedback-builder")}>
+            <ClipboardCheck className="mr-2 h-4 w-4" />
+            <span>Feedback Builder</span>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
