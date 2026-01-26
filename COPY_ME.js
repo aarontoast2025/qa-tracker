@@ -15,7 +15,7 @@ javascript:(function(){
         if(e.origin!=='http://localhost:3000') return;
         
         if(e.data.type==='REQUEST_HOST_DATA'){
-            var getVal = function(s){ var el=document.querySelector(s); return el?el.textContent.trim():""; };
+            var getVal = function(s){ var el=document.querySelector(s); return el?el.textContent.trim():"" };
             var h4s = Array.from(document.querySelectorAll('h4'));
             var findH4Val = function(txt){ 
                 var h4 = h4s.find(function(el){return el.textContent.trim().includes(txt)});
@@ -47,14 +47,16 @@ javascript:(function(){
                 }
                 var item = items[index];
                 var h2s=Array.from(document.querySelectorAll('h2'));
-                var h2=h2s.find(function(el){return el.textContent.trim().toLowerCase()===item.groupName.toLowerCase()});
+                var h2=h2s.find(function(el){return el.textContent.trim().toLowerCase().includes(item.groupName.toLowerCase())});
                 var container=h2?h2.closest('.padding-xlarge')||h2.parentElement:document;
                 var itemEl=container.querySelector('[data-idx="'+item.index+'"]');
+                
                 if(!itemEl){
                    var labels=Array.from(container.querySelectorAll('label'));
-                   var label=labels.find(function(l){return l.textContent.includes(item.fullQuestion)});
+                   var label=labels.find(function(l){return l.textContent.toLowerCase().includes(item.fullQuestion.toLowerCase())});
                    itemEl=label?label.closest('div'):null;
                 }
+                
                 if(itemEl){
                     var buttons=Array.from(itemEl.querySelectorAll('button'));
                     var targetBtn=buttons.find(function(b){return b.textContent.trim().toLowerCase()===item.answer.toLowerCase()});
@@ -72,11 +74,20 @@ javascript:(function(){
                             }
                             var textarea=itemEl.querySelector('textarea');
                             if(textarea){
-                                textarea.value = item.feedback || ("Automated: " + item.answer);
+                                var finalText = item.feedback || ("Automated: " + item.answer);
+                                try {
+                                    var proto = Object.getPrototypeOf(textarea);
+                                    var setter = Object.getOwnPropertyDescriptor(proto, "value").set;
+                                    if(setter) setter.call(textarea, finalText); 
+                                    else textarea.value = finalText;
+                                } catch(err) {
+                                    textarea.value = finalText;
+                                }
                                 textarea.dispatchEvent(new Event('input',{bubbles:true}));
+                                textarea.dispatchEvent(new Event('change',{bubbles:true}));
                             }
                             processItem(index + 1);
-                        }, 2000);
+                        }, 2500);
                     } else { processItem(index + 1); }
                 } else { processItem(index + 1); }
             };
@@ -104,7 +115,7 @@ javascript:(function(){
         if(e.origin!=='https://qa-tracker-toast.vercel.app') return;
         
         if(e.data.type==='REQUEST_HOST_DATA'){
-            var getVal = function(s){ var el=document.querySelector(s); return el?el.textContent.trim():""; };
+            var getVal = function(s){ var el=document.querySelector(s); return el?el.textContent.trim():"" };
             var h4s = Array.from(document.querySelectorAll('h4'));
             var findH4Val = function(txt){ 
                 var h4 = h4s.find(function(el){return el.textContent.trim().includes(txt)});
@@ -136,14 +147,16 @@ javascript:(function(){
                 }
                 var item = items[index];
                 var h2s=Array.from(document.querySelectorAll('h2'));
-                var h2=h2s.find(function(el){return el.textContent.trim().toLowerCase()===item.groupName.toLowerCase()});
+                var h2=h2s.find(function(el){return el.textContent.trim().toLowerCase().includes(item.groupName.toLowerCase())});
                 var container=h2?h2.closest('.padding-xlarge')||h2.parentElement:document;
                 var itemEl=container.querySelector('[data-idx="'+item.index+'"]');
+                
                 if(!itemEl){
                    var labels=Array.from(container.querySelectorAll('label'));
-                   var label=labels.find(function(l){return l.textContent.includes(item.fullQuestion)});
+                   var label=labels.find(function(l){return l.textContent.toLowerCase().includes(item.fullQuestion.toLowerCase())});
                    itemEl=label?label.closest('div'):null;
                 }
+                
                 if(itemEl){
                     var buttons=Array.from(itemEl.querySelectorAll('button'));
                     var targetBtn=buttons.find(function(b){return b.textContent.trim().toLowerCase()===item.answer.toLowerCase()});
@@ -161,11 +174,20 @@ javascript:(function(){
                             }
                             var textarea=itemEl.querySelector('textarea');
                             if(textarea){
-                                textarea.value = item.feedback || ("Automated: " + item.answer);
+                                var finalText = item.feedback || ("Automated: " + item.answer);
+                                try {
+                                    var proto = Object.getPrototypeOf(textarea);
+                                    var setter = Object.getOwnPropertyDescriptor(proto, "value").set;
+                                    if(setter) setter.call(textarea, finalText); 
+                                    else textarea.value = finalText;
+                                } catch(err) {
+                                    textarea.value = finalText;
+                                }
                                 textarea.dispatchEvent(new Event('input',{bubbles:true}));
+                                textarea.dispatchEvent(new Event('change',{bubbles:true}));
                             }
                             processItem(index + 1);
-                        }, 2000);
+                        }, 2500);
                     } else { processItem(index + 1); }
                 } else { processItem(index + 1); }
             };

@@ -282,7 +282,7 @@ export function AuditFormRenderer({ structure }: AuditFormRendererProps) {
             answer: option?.label || null,
             feedback: feedback[item.id] || "",
             tags: selectedTags,
-            index: item.order_index
+            index: item.order_index + 1
           };
         });
 
