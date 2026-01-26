@@ -2,8 +2,8 @@
     if (document.getElementById('qa-tracker-root')) return;
 
     // --- CONFIGURATION ---
-    var SUPABASE_URL = 'https://gmawsnjwdeefwzradbzn.supabase.co';
-    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtYXdzbmp3ZGVlZnd6cmFkYnpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4MjY2MzEsImV4cCI6MjA4MzQwMjYzMX0.TurtWcLSXyx25IiPFXlly7FPWOn3nCcbzmZGJzI_1nI';
+    var SUPABASE_URL = 'https://lobhwknisejjvubweall.supabase.co';
+    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvYmh3a25pc2VqanZ1YndlYWxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1Nzk4NjIsImV4cCI6MjA4NDE1NTg2Mn0.2OTSmBD62Fgcecuxps6YoaW9-lPPu1MFA7cWl1g9MUk';
     var FORM_ID = '41e96e83-dad5-4752-be7f-ae0a5dd31406';
 
     var styles = `
@@ -15,6 +15,13 @@
     
     .qa-card { border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 8px; overflow: hidden; }
     .qa-card-header { padding: 10px 16px; background: #f5f5f5; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.2s; }
+    
+    /* Header Background Colors based on selection */
+    .header-success { background: #f0fdf4 !important; }
+    .header-destructive { background: #fef2f2 !important; }
+    .header-warning { background: #fffbeb !important; }
+    .header-default { background: #eff6ff !important; }
+
     .qa-card-body { padding: 12px 16px; border-top: 1px solid #e0e0e0; background: #fafafa; display: none; }
     .qa-card.expanded .qa-card-body { display: block; }
 
@@ -26,13 +33,17 @@
     .qa-field-input { width: 100%; border: none; outline: none; font-size: 13px; background: transparent; }
     .qa-label-small { display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px; color: #333; }
 
-    .qa-btn-group { display: flex; gap: 6px; margin-bottom: 8px; }
-    .qa-opt-btn { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 12px; background: white; transition: all 0.2s; }
+    .qa-btn-group { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+    .qa-opt-btn { flex: 1; min-width: 60px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 12px; background: white; transition: all 0.2s; text-transform: uppercase; }
     
     .btn-success.selected { background: #dcfce7 !important; color: #14532d !important; border-color: #15803d !important; }
     .btn-destructive.selected { background: #fee2e2 !important; color: #7f1d1d !important; border-color: #b91c1c !important; }
     .btn-warning.selected { background: #fef3c7 !important; color: #92400e !important; border-color: #d97706 !important; }
     .btn-default.selected { background: #f3f4f6 !important; color: #374151 !important; border-color: #9ca3af !important; }
+
+    .qa-tag-group { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+    .qa-tag-btn { padding: 4px 8px; font-size: 10px; font-weight: 600; border: 1px solid #ccc; border-radius: 12px; background: white; cursor: pointer; transition: all 0.2s; text-transform: uppercase; }
+    .qa-tag-btn.selected { background: #2563eb; color: white; border-color: #1e40af; }
 
     .qa-btn { padding: 8px 16px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; font-size: 14px; font-weight: 500; transition: all 0.2s; }
     .qa-btn-cancel { background: white; color: #333; }
@@ -42,10 +53,10 @@
     
     .qa-checkbox { width: 16px; height: 16px; margin-right: 12px; cursor: pointer; }
     .qa-item-label { font-size: 14px; color: #333; font-weight: 400; }
-    .qa-textarea { width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 8px; font-family: inherit; resize: vertical; height: 50px; font-size: 13px; }
+    .qa-textarea { width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 8px; font-family: inherit; resize: vertical; height: 60px; font-size: 13px; box-sizing: border-box; }
     `;
 
-    var state = { structure: [], answers: {}, feedback: {}, checked: {}, expanded: {}, header: {} };
+    var state = { structure: [], answers: {}, feedback: {}, checked: {}, expanded: {}, selectedTags: {}, header: {} };
 
     async function sb(table, query) {
         var res = await fetch(SUPABASE_URL + '/rest/v1/' + table + '?' + query, {
@@ -62,13 +73,28 @@
             var items = await sb('tracker_audit_items', 'group_id=in.(' + groupIds.join(',') + ')&order=order_index');
             var itemIds = items.map(function(i) { return i.id; });
             var options = await sb('tracker_audit_item_options', 'item_id=in.(' + itemIds.join(',') + ')&order=order_index');
+            var optionIds = options.map(function(o) { return o.id; });
+
+            // Fetch Feedback Defaults and Tags
+            var feedbackGen = await sb('feedback_general', 'option_id=in.(' + optionIds.join(',') + ')');
+            var feedbackTags = await sb('feedback_tags', 'option_id=in.(' + optionIds.join(',') + ')');
 
             state.structure = groups.map(function(g) {
                 g.items = items.filter(function(i) { return i.group_id === g.id; }).map(function(i) {
-                    i.options = options.filter(function(o) { return o.item_id === i.id; });
+                    i.options = options.filter(function(o) { return o.item_id === i.id; }).map(function(o) {
+                        o.feedback_general = feedbackGen.filter(function(f) { return f.option_id === o.id; });
+                        o.feedback_tags = feedbackTags.filter(function(f) { return f.option_id === o.id; });
+                        return o;
+                    });
+                    
                     var def = i.options.find(function(o) { return o.is_default; });
-                    if (def) state.answers[i.id] = def.id;
-                    state.checked[i.id] = true; // Changed to TRUE by default
+                    if (def) {
+                        state.answers[i.id] = def.id;
+                        if (def.feedback_general && def.feedback_general[0]) {
+                            state.feedback[i.id] = def.feedback_general[0].feedback_text;
+                        }
+                    }
+                    state.checked[i.id] = true;
                     return i;
                 });
                 return g;
@@ -91,6 +117,24 @@
             ani: findH4Val('ANI') || findH4Val('DNIS'),
             dur: findH4Val('Call Duration')
         };
+    }
+
+    function updateFeedback(itemId) {
+        var optId = state.answers[itemId];
+        var item = null;
+        state.structure.forEach(function(g) { g.items.forEach(function(i) { if(i.id === itemId) item = i; }); });
+        if (!item) return;
+        var opt = item.options.find(function(o) { return o.id === optId; });
+        if (!opt) return;
+
+        var selectedTags = state.selectedTags[itemId] || [];
+        if (selectedTags.length > 0) {
+            var txt = opt.feedback_tags.filter(function(t) { return selectedTags.includes(t.id); })
+                .map(function(t) { return t.feedback_text; }).join(' ');
+            state.feedback[itemId] = txt;
+        } else {
+            state.feedback[itemId] = (opt.feedback_general && opt.feedback_general[0]) ? opt.feedback_general[0].feedback_text : "";
+        }
     }
 
     function render() {
@@ -122,8 +166,13 @@
             body.appendChild(gTitle);
 
             group.items.forEach(function(item) {
+                var optId = state.answers[item.id];
+                var opt = item.options.find(function(o) { return o.id === optId; });
+                var headerClass = "";
+                if (opt) headerClass = "header-" + (opt.color || "default");
+
                 var card = document.createElement('div'); card.className = 'qa-card' + (state.expanded[item.id] ? ' expanded' : '');
-                var header = document.createElement('div'); header.className = 'qa-card-header';
+                var header = document.createElement('div'); header.className = 'qa-card-header ' + headerClass;
                 
                 var left = document.createElement('div'); left.style.display = 'flex'; left.style.alignItems = 'center';
                 var cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'qa-checkbox';
@@ -140,15 +189,41 @@
                 
                 var content = document.createElement('div'); content.className = 'qa-card-body';
                 var btnGroup = document.createElement('div'); btnGroup.className = 'qa-btn-group';
-                item.options.forEach(function(opt) {
+                item.options.forEach(function(o) {
                     var btn = document.createElement('button');
-                    var isSel = state.answers[item.id] === opt.id;
-                    btn.className = 'qa-opt-btn ' + (opt.color ? 'btn-' + opt.color : 'btn-default') + (isSel ? ' selected' : '');
-                    btn.textContent = opt.label;
-                    btn.onclick = function() { state.answers[item.id] = opt.id; render(); };
+                    var isSel = state.answers[item.id] === o.id;
+                    btn.className = 'qa-opt-btn ' + (o.color ? 'btn-' + o.color : 'btn-default') + (isSel ? ' selected' : '');
+                    btn.textContent = o.label;
+                    btn.onclick = function() { 
+                        state.answers[item.id] = o.id; 
+                        state.selectedTags[item.id] = []; 
+                        updateFeedback(item.id);
+                        render(); 
+                    };
                     btnGroup.appendChild(btn);
                 });
                 content.appendChild(btnGroup);
+
+                // Tags
+                if (opt && opt.feedback_tags && opt.feedback_tags.length > 0) {
+                    var tagGroup = document.createElement('div'); tagGroup.className = 'qa-tag-group';
+                    opt.feedback_tags.forEach(function(tag) {
+                        var tBtn = document.createElement('div');
+                        var isTagSel = (state.selectedTags[item.id] || []).includes(tag.id);
+                        tBtn.className = 'qa-tag-btn' + (isTagSel ? ' selected' : '');
+                        tBtn.textContent = tag.tag_label;
+                        tBtn.onclick = function() {
+                            var cur = state.selectedTags[item.id] || [];
+                            if (cur.includes(tag.id)) cur = cur.filter(function(tid) { return tid !== tag.id; });
+                            else cur.push(tag.id);
+                            state.selectedTags[item.id] = cur;
+                            updateFeedback(item.id);
+                            render();
+                        };
+                        tagGroup.appendChild(tBtn);
+                    });
+                    content.appendChild(tagGroup);
+                }
                 
                 var area = document.createElement('textarea'); area.className = 'qa-textarea';
                 area.placeholder = 'Comments...';
@@ -164,7 +239,7 @@
     function makeDraggable(el, handle) {
         var p1 = 0, p2 = 0, p3 = 0, p4 = 0;
         handle.onmousedown = function(e) {
-            if (e.target.tagName === 'SPAN' && e.target.onclick) return; // Don't drag when clicking close 'X'
+            if (e.target.tagName === 'SPAN' && e.target.onclick) return;
             p3 = e.clientX; p4 = e.clientY;
             document.onmouseup = function() { document.onmouseup = null; document.onmousemove = null; };
             document.onmousemove = function(e) {
