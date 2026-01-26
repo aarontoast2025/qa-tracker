@@ -9,24 +9,24 @@ javascript:(function(){
     var u='http://localhost:3000/embed/audit/'+f+'?url='+encodeURIComponent(window.location.href);
     var popup=window.open(u,'QAForm','width='+w+',height='+h+',top='+t+',left='+l+',scrollbars=yes');
     if(!popup || popup.closed || typeof popup.closed=='undefined'){ alert('Popup Blocked!'); return; }
-    
+
     window.removeEventListener('message', window.__qaBridge);
     window.__qaBridge = function(e){
         if(e.origin!=='http://localhost:3000') return;
-        
+
         if(e.data.type==='REQUEST_HOST_DATA'){
             var getVal = function(s){ var el=document.querySelector(s); return el?el.textContent.trim():"" };
             var h4s = Array.from(document.querySelectorAll('h4'));
-            var findH4Val = function(txt){ 
+            var findH4Val = function(txt){
                 var h4 = h4s.find(function(el){return el.textContent.trim().includes(txt)});
                 return h4 && h4.nextElementSibling ? h4.nextElementSibling.textContent.trim() : "";
             };
-            
+
             var extractTranscript = function() {
                 var els = document.querySelectorAll('.spec-transcript-content');
                 return Array.from(els).map(function(el){ return el.innerText.trim(); }).join("\n");
             };
-            
+
             var data = {
                 interaction_id: findH4Val('Interaction ID'),
                 advocate_name: getVal('.review-info h2'),
@@ -50,13 +50,13 @@ javascript:(function(){
                 var h2=h2s.find(function(el){return el.textContent.trim().toLowerCase().includes(item.groupName.toLowerCase())});
                 var container=h2?h2.closest('.padding-xlarge')||h2.parentElement:document;
                 var itemEl=container.querySelector('[data-idx="'+item.index+'"]');
-                
+
                 if(!itemEl){
                    var labels=Array.from(container.querySelectorAll('label'));
                    var label=labels.find(function(l){return l.textContent.toLowerCase().includes(item.fullQuestion.toLowerCase())});
                    itemEl=label?label.closest('div'):null;
                 }
-                
+
                 if(itemEl){
                     var buttons=Array.from(itemEl.querySelectorAll('button'));
                     var targetBtn=buttons.find(function(b){return b.textContent.trim().toLowerCase()===item.answer.toLowerCase()});
@@ -78,7 +78,7 @@ javascript:(function(){
                                 try {
                                     var proto = Object.getPrototypeOf(textarea);
                                     var setter = Object.getOwnPropertyDescriptor(proto, "value").set;
-                                    if(setter) setter.call(textarea, finalText); 
+                                    if(setter) setter.call(textarea, finalText);
                                     else textarea.value = finalText;
                                 } catch(err) {
                                     textarea.value = finalText;
@@ -113,20 +113,20 @@ javascript:(function(){
     window.removeEventListener('message', window.__qaBridge);
     window.__qaBridge = function(e){
         if(e.origin!=='https://qa-tracker-toast.vercel.app') return;
-        
+
         if(e.data.type==='REQUEST_HOST_DATA'){
             var getVal = function(s){ var el=document.querySelector(s); return el?el.textContent.trim():"" };
             var h4s = Array.from(document.querySelectorAll('h4'));
-            var findH4Val = function(txt){ 
+            var findH4Val = function(txt){
                 var h4 = h4s.find(function(el){return el.textContent.trim().includes(txt)});
                 return h4 && h4.nextElementSibling ? h4.nextElementSibling.textContent.trim() : "";
             };
-            
+
             var extractTranscript = function() {
                 var els = document.querySelectorAll('.spec-transcript-content');
                 return Array.from(els).map(function(el){ return el.innerText.trim(); }).join("\n");
             };
-            
+
             var data = {
                 interaction_id: findH4Val('Interaction ID'),
                 advocate_name: getVal('.review-info h2'),
@@ -150,45 +150,56 @@ javascript:(function(){
                 var h2=h2s.find(function(el){return el.textContent.trim().toLowerCase().includes(item.groupName.toLowerCase())});
                 var container=h2?h2.closest('.padding-xlarge')||h2.parentElement:document;
                 var itemEl=container.querySelector('[data-idx="'+item.index+'"]');
-                
+
                 if(!itemEl){
                    var labels=Array.from(container.querySelectorAll('label'));
                    var label=labels.find(function(l){return l.textContent.toLowerCase().includes(item.fullQuestion.toLowerCase())});
                    itemEl=label?label.closest('div'):null;
                 }
-                
+
                 if(itemEl){
-                    var buttons=Array.from(itemEl.querySelectorAll('button'));
-                    var targetBtn=buttons.find(function(b){return b.textContent.trim().toLowerCase()===item.answer.toLowerCase()});
-                    if(targetBtn){
-                        targetBtn.click();
+                    // First, expand the item to make textarea visible
+                    var header = itemEl.querySelector('div[style*="cursor: pointer"]') || itemEl.firstElementChild;
+                    if(header) {
+                        header.click();
                         setTimeout(function(){
-                            if(item.tags && item.tags.length > 0){
-                                var allBtns = Array.from(itemEl.querySelectorAll('button'));
-                                item.tags.forEach(function(tagLabel){
-                                    var tBtn = allBtns.find(function(b){
-                                        return b.textContent.trim().toLowerCase().includes(tagLabel.toLowerCase());
-                                    });
-                                    if(tBtn) tBtn.click();
-                                });
-                            }
-                            var textarea=itemEl.querySelector('textarea');
-                            if(textarea){
-                                var finalText = item.feedback || ("Automated: " + item.answer);
-                                try {
-                                    var proto = Object.getPrototypeOf(textarea);
-                                    var setter = Object.getOwnPropertyDescriptor(proto, "value").set;
-                                    if(setter) setter.call(textarea, finalText); 
-                                    else textarea.value = finalText;
-                                } catch(err) {
-                                    textarea.value = finalText;
-                                }
-                                textarea.dispatchEvent(new Event('input',{bubbles:true}));
-                                textarea.dispatchEvent(new Event('change',{bubbles:true}));
-                            }
-                            processItem(index + 1);
-                        }, 2500);
-                    } else { processItem(index + 1); }
+                            var buttons=Array.from(itemEl.querySelectorAll('button'));
+                            var targetBtn=buttons.find(function(b){return b.textContent.trim().toLowerCase()===item.answer.toLowerCase()});
+                            if(targetBtn){
+                                targetBtn.click();
+                                setTimeout(function(){
+                                    if(item.tags && item.tags.length > 0){
+                                        var allBtns = Array.from(itemEl.querySelectorAll('button'));
+                                        item.tags.forEach(function(tagLabel){
+                                            var tBtn = allBtns.find(function(b){
+                                                return b.textContent.trim().toLowerCase().includes(tagLabel.toLowerCase());
+                                            });
+                                            if(tBtn) tBtn.click();
+                                        });
+                                    }
+                                    setTimeout(function(){
+                                        var textarea=itemEl.querySelector('textarea');
+                                        if(textarea){
+                                            var finalText = item.feedback || ("Automated: " + item.answer);
+                                            try {
+                                                var proto = Object.getPrototypeOf(textarea);
+                                                var setter = Object.getOwnPropertyDescriptor(proto, "value").set;
+                                                if(setter) setter.call(textarea, finalText);
+                                                else textarea.value = finalText;
+                                            } catch(err) {
+                                                textarea.value = finalText;
+                                            }
+                                            textarea.dispatchEvent(new Event('input',{bubbles:true}));
+                                            textarea.dispatchEvent(new Event('change',{bubbles:true}));
+                                        }
+                                        processItem(index + 1);
+                                    }, 500);
+                                }, 2500);
+                            } else { processItem(index + 1); }
+                        }, 500); // Wait for expansion
+                    } else {
+                        processItem(index + 1);
+                    }
                 } else { processItem(index + 1); }
             };
             processItem(0);
