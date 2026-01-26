@@ -2,8 +2,8 @@
     if (document.getElementById('qa-tracker-root')) return;
 
     // --- CONFIGURATION ---
-    var SUPABASE_URL = 'https://lobhwknisejjvubweall.supabase.co';
-    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvYmh3a25pc2VqanZ1YndlYWxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1Nzk4NjIsImV4cCI6MjA4NDE1NTg2Mn0.2OTSmBD62Fgcecuxps6YoaW9-lPPu1MFA7cWl1g9MUk';
+    var SUPABASE_URL = 'https://gmawsnjwdeefwzradbzn.supabase.co';
+    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtYXdzbmp3ZGVlZnd6cmFkYnpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4MjY2MzEsImV4cCI6MjA4MzQwMjYzMX0.TurtWcLSXyx25IiPFXlly7FPWOn3nCcbzmZGJzI_1nI';
     var FORM_ID = '41e96e83-dad5-4752-be7f-ae0a5dd31406';
 
     var styles = `
@@ -29,10 +29,10 @@
     .qa-btn-group { display: flex; gap: 6px; margin-bottom: 8px; }
     .qa-opt-btn { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 12px; background: white; transition: all 0.2s; }
     
-    .btn-success.selected { background: #dcfce7; color: #14532d; border-color: #15803d; }
-    .btn-destructive.selected { background: #fee2e2; color: #7f1d1d; border-color: #b91c1c; }
-    .btn-warning.selected { background: #fef3c7; color: #92400e; border-color: #d97706; }
-    .btn-default.selected { background: #f3f4f6; color: #374151; border-color: #9ca3af; }
+    .btn-success.selected { background: #dcfce7 !important; color: #14532d !important; border-color: #15803d !important; }
+    .btn-destructive.selected { background: #fee2e2 !important; color: #7f1d1d !important; border-color: #b91c1c !important; }
+    .btn-warning.selected { background: #fef3c7 !important; color: #92400e !important; border-color: #d97706 !important; }
+    .btn-default.selected { background: #f3f4f6 !important; color: #374151 !important; border-color: #9ca3af !important; }
 
     .qa-btn { padding: 8px 16px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; font-size: 14px; font-weight: 500; transition: all 0.2s; }
     .qa-btn-cancel { background: white; color: #333; }
@@ -57,32 +57,33 @@
     async function loadForm() {
         try {
             var groups = await sb('tracker_audit_groups', 'form_id=eq.' + FORM_ID + '&order=order_index');
-            var groupIds = groups.map(g => g.id);
+            if (groups.length === 0) return;
+            var groupIds = groups.map(function(g) { return g.id; });
             var items = await sb('tracker_audit_items', 'group_id=in.(' + groupIds.join(',') + ')&order=order_index');
-            var itemIds = items.map(i => i.id);
+            var itemIds = items.map(function(i) { return i.id; });
             var options = await sb('tracker_audit_item_options', 'item_id=in.(' + itemIds.join(',') + ')&order=order_index');
 
-            state.structure = groups.map(g => {
-                g.items = items.filter(i => i.group_id === g.id).map(i => {
-                    i.options = options.filter(o => o.item_id === i.id);
-                    var def = i.options.find(o => o.is_default);
+            state.structure = groups.map(function(g) {
+                g.items = items.filter(function(i) { return i.group_id === g.id; }).map(function(i) {
+                    i.options = options.filter(function(o) { return o.item_id === i.id; });
+                    var def = i.options.find(function(o) { return o.is_default; });
                     if (def) state.answers[i.id] = def.id;
-                    state.checked[i.id] = false;
+                    state.checked[i.id] = true; // Changed to TRUE by default
                     return i;
                 });
                 return g;
             });
             scrape();
             render();
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Load failed", e); }
     }
 
     function scrape() {
         var getVal = function(s) { var el = document.querySelector(s); return el ? el.textContent.trim() : ""; };
         var h4s = Array.from(document.querySelectorAll('h4'));
         var findH4Val = function(txt) {
-            var h4 = h4s.find(function(el) { return el.textContent.trim().includes(txt) });
-            return h4 && h4.nextElementSibling ? h4.nextElementSibling.textContent.trim() : "";
+            var h4 = h4s.find(function(el) { return el.textContent.trim().includes(txt); });
+            return (h4 && h4.nextElementSibling) ? h4.nextElementSibling.textContent.trim() : "";
         };
         state.header = {
             id: findH4Val('Interaction ID'),
@@ -97,7 +98,6 @@
         if (!body) return;
         body.innerHTML = '';
         
-        // Header Fields with Icons and Ghosttext
         var hGrid = document.createElement('div'); hGrid.className = 'qa-compact-grid';
         hGrid.innerHTML = `
             <div class="qa-field-wrap"><span class="qa-field-icon">🆔</span><input class="qa-field-input" id="h-id" placeholder="Interaction ID" value="${state.header.id||''}"></div>
@@ -116,19 +116,19 @@
         `;
         body.appendChild(hGrid);
 
-        state.structure.forEach(group => {
+        state.structure.forEach(function(group) {
             var gTitle = document.createElement('div'); gTitle.className = 'qa-section-title';
             gTitle.textContent = group.title;
             body.appendChild(gTitle);
 
-            group.items.forEach(item => {
+            group.items.forEach(function(item) {
                 var card = document.createElement('div'); card.className = 'qa-card' + (state.expanded[item.id] ? ' expanded' : '');
                 var header = document.createElement('div'); header.className = 'qa-card-header';
                 
                 var left = document.createElement('div'); left.style.display = 'flex'; left.style.alignItems = 'center';
                 var cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'qa-checkbox';
                 cb.checked = state.checked[item.id];
-                cb.onclick = (e) => { e.stopPropagation(); state.checked[item.id] = cb.checked; };
+                cb.onclick = function(e) { e.stopPropagation(); state.checked[item.id] = cb.checked; };
                 
                 var label = document.createElement('span'); label.className = 'qa-item-label';
                 label.textContent = item.short_name || item.question_text;
@@ -136,16 +136,16 @@
                 left.appendChild(cb); left.appendChild(label);
                 var arrow = document.createElement('span'); arrow.textContent = state.expanded[item.id] ? '▲' : '▼';
                 header.appendChild(left); header.appendChild(arrow);
-                header.onclick = () => { state.expanded[item.id] = !state.expanded[item.id]; render(); };
+                header.onclick = function() { state.expanded[item.id] = !state.expanded[item.id]; render(); };
                 
                 var content = document.createElement('div'); content.className = 'qa-card-body';
                 var btnGroup = document.createElement('div'); btnGroup.className = 'qa-btn-group';
-                item.options.forEach(opt => {
+                item.options.forEach(function(opt) {
                     var btn = document.createElement('button');
                     var isSel = state.answers[item.id] === opt.id;
                     btn.className = 'qa-opt-btn ' + (opt.color ? 'btn-' + opt.color : 'btn-default') + (isSel ? ' selected' : '');
                     btn.textContent = opt.label;
-                    btn.onclick = () => { state.answers[item.id] = opt.id; render(); };
+                    btn.onclick = function() { state.answers[item.id] = opt.id; render(); };
                     btnGroup.appendChild(btn);
                 });
                 content.appendChild(btnGroup);
@@ -153,7 +153,7 @@
                 var area = document.createElement('textarea'); area.className = 'qa-textarea';
                 area.placeholder = 'Comments...';
                 area.value = state.feedback[item.id] || '';
-                area.oninput = (e) => { state.feedback[item.id] = e.target.value; };
+                area.oninput = function(e) { state.feedback[item.id] = e.target.value; };
                 content.appendChild(area);
                 card.appendChild(header); card.appendChild(content);
                 body.appendChild(card);
@@ -163,11 +163,11 @@
 
     function makeDraggable(el, handle) {
         var p1 = 0, p2 = 0, p3 = 0, p4 = 0;
-        handle.onmousedown = (e) => {
-            if (e.target !== handle && e.target.parentNode !== handle) return;
+        handle.onmousedown = function(e) {
+            if (e.target.tagName === 'SPAN' && e.target.onclick) return; // Don't drag when clicking close 'X'
             p3 = e.clientX; p4 = e.clientY;
-            document.onmouseup = () => { document.onmouseup = null; document.onmousemove = null; };
-            document.onmousemove = (e) => {
+            document.onmouseup = function() { document.onmouseup = null; document.onmousemove = null; };
+            document.onmousemove = function(e) {
                 p1 = p3 - e.clientX; p2 = p4 - e.clientY;
                 p3 = e.clientX; p4 = e.clientY;
                 el.style.top = (el.offsetTop - p2) + "px";
@@ -177,28 +177,28 @@
         };
     }
 
-    async function handleAutomate() {
+    function handleAutomate() {
         var tasks = [];
-        state.structure.forEach(g => g.items.forEach(i => {
+        state.structure.forEach(function(g) { g.items.forEach(function(i) {
             if (state.checked[i.id] && state.answers[i.id]) {
-                var opt = i.options.find(o => o.id === state.answers[i.id]);
+                var opt = i.options.find(function(o) { return o.id === state.answers[i.id]; });
                 tasks.push({ group: g.title, q: i.question_text, a: opt.label, f: state.feedback[i.id], idx: i.order_index + 1 });
             }
-        }));
+        });});
 
-        var run = (idx) => {
+        var run = function(idx) {
             if (idx >= tasks.length) return;
             var t = tasks[idx];
-            var h2 = Array.from(document.querySelectorAll('h2')).find(el => el.textContent.includes(t.group));
+            var h2 = Array.from(document.querySelectorAll('h2')).find(function(el) { return el.textContent.includes(t.group); });
             var cont = h2 ? h2.closest('.padding-xlarge') || h2.parentElement : document;
             var itemEl = cont.querySelector('[data-idx="' + t.idx + '"]');
             if (itemEl) {
                 var head = itemEl.querySelector('div[style*="cursor: pointer"]') || itemEl.firstElementChild;
                 head.click();
-                setTimeout(() => {
-                    var b = Array.from(itemEl.querySelectorAll('button')).find(el => el.textContent.trim().toLowerCase() === t.a.toLowerCase());
+                setTimeout(function() {
+                    var b = Array.from(itemEl.querySelectorAll('button')).find(function(el) { return el.textContent.trim().toLowerCase() === t.a.toLowerCase(); });
                     if (b) b.click();
-                    setTimeout(() => {
+                    setTimeout(function() {
                         var area = itemEl.querySelector('textarea');
                         if (area) { area.value = t.f || ("Automated: " + t.a); area.dispatchEvent(new Event('input', {bubbles:true})); }
                         run(idx + 1);
