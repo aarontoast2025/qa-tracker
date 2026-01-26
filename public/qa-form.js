@@ -1,222 +1,822 @@
 (function() {
-    if (document.getElementById('qa-tracker-root')) return;
+    if (document.getElementById('qa-modal-overlay')) return;
     console.log("QA Tool: Initializing...");
 
     var API_BASE_URL = 'https://qa-tracker-toast.vercel.app';
     var FORM_ID = '41e96e83-dad5-4752-be7f-ae0a5dd31406';
 
-    var styles = "#qa-tracker-root { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2147483647; pointer-events: none; font-family: sans-serif; }" +
-    "#qa-tracker-main { position: fixed; top: 20px; right: 20px; width: 550px; max-height: 85vh; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column; pointer-events: auto; border: 1px solid #e0e0e0; overflow: hidden; }" +
-    "#qa-tracker-header { padding: 15px 20px; background: #fff; border-bottom: 1px solid #e0e0e0; color: #333; display: flex; justify-content: space-between; align-items: center; cursor: grab; font-weight: 600; font-size: 18px; user-select: none; }" +
-    "#qa-tracker-body { flex: 1; overflow-y: auto; padding: 20px; background: #fff; }" +
-    "#qa-tracker-footer { padding: 16px; border-top: 1px solid #e0e0e0; background: #fff; display: flex; gap: 8px; justify-content: flex-end; }" +
-    ".qa-card { border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 8px; overflow: hidden; }" +
-    ".qa-card-header { padding: 10px 16px; background: #f5f5f5; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }" +
-    ".header-success { background: #f0fdf4 !important; }" +
-    ".header-destructive { background: #fef2f2 !important; }" +
-    ".header-warning { background: #fffbeb !important; }" +
-    ".header-default { background: #eff6ff !important; }" +
-    ".qa-card-body { padding: 12px 16px; border-top: 1px solid #e0e0e0; background: #fafafa; display: none; }" +
-    ".qa-card.expanded .qa-card-body { display: block; }" +
-    ".qa-section-title { font-size: 16px; font-weight: bold; color: #1d4ed8; border-bottom: 2px solid #1d4ed8; padding-bottom: 4px; margin: 20px 0 10px; }" +
-    ".qa-compact-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px; }" +
-    ".qa-field-wrap { display: flex; align-items: center; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; background: white; }" +
-    ".qa-field-icon { margin-right: 8px; font-size: 14px; opacity: 0.7; width: 18px; text-align: center; }" +
-    ".qa-field-input { width: 100%; border: none; outline: none; font-size: 13px; background: transparent; }" +
-    ".qa-label-small { display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px; color: #333; }" +
-    ".qa-btn-group { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }" +
-    ".qa-opt-btn { flex: 1; min-width: 60px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 12px; background: white; text-transform: uppercase; }" +
-    ".btn-success.selected { background: #dcfce7 !important; color: #14532d !important; border-color: #15803d !important; }" +
-    ".btn-destructive.selected { background: #fee2e2 !important; color: #7f1d1d !important; border-color: #b91c1c !important; }" +
-    ".btn-warning.selected { background: #fef3c7 !important; color: #92400e !important; border-color: #d97706 !important; }" +
-    ".btn-default.selected { background: #f3f4f6 !important; color: #374151 !important; border-color: #9ca3af !important; }" +
-    ".qa-tag-group { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }" +
-    ".qa-tag-btn { padding: 4px 8px; font-size: 10px; font-weight: 600; border: 1px solid #ccc; border-radius: 12px; background: white; cursor: pointer; text-transform: uppercase; }" +
-    ".qa-tag-btn.selected { background: #2563eb; color: white; border-color: #1e40af; }" +
-    ".qa-btn { padding: 8px 16px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; font-size: 14px; font-weight: 500; }" +
-    ".qa-btn-cancel { background: white; color: #333; }" +
-    ".qa-btn-save { background: #059669; color: white; border: none; }" +
-    ".qa-btn-gen { background: #4f46e5; color: white; border: none; }" +
-    ".qa-btn-both { background: #2563eb; color: white; border: none; }" +
-    ".qa-checkbox { width: 16px; height: 16px; margin-right: 12px; cursor: pointer; }" +
-    ".qa-item-label { font-size: 14px; color: #333; font-weight: 400; }" +
-    ".qa-textarea { width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 8px; font-family: inherit; resize: vertical; height: 60px; font-size: 13px; box-sizing: border-box; }";
+    var state = {};
+    var globalStructure = [];
+    var globalFeedbackGeneral = [];
+    var globalFeedbackTags = [];
+    var existingRecordId = null;
 
-    var state = { structure: [], answers: {}, feedback: {}, checked: {}, expanded: {}, selectedTags: {}, header: {} };
+    // Colors
+    var C_GREEN_BG = "#dcfce7", C_GREEN_TXT = "#14532d", C_GREEN_BORDER = "#15803d";
+    var C_RED_BG = "#fee2e2", C_RED_TXT = "#7f1d1d", C_RED_BORDER = "#b91c1c";
+    var C_GRAY_BG = "#f3f4f6", C_GRAY_TXT = "#374151", C_GRAY_BORDER = "#9ca3af";
+    var C_HEADER_GREEN = "#f0fdf4", C_HEADER_RED = "#fef2f2", C_HEADER_GRAY = "#e0e7ff";
 
-    function updateFeedback(itemId) {
-        var itm = null;
-        for(var i=0; i<state.structure.length; i++) {
-            for(var j=0; j<state.structure[i].items.length; j++) {
-                if(state.structure[i].items[j].id === itemId) itm = state.structure[i].items[j];
-            }
-        }
-        if(!itm) return;
-        var opt = itm.options.filter(function(o){ return o.id === state.answers[itemId]; })[0];
-        if(!opt) return;
-        var tags = state.selectedTags[itemId] || [];
-        if(tags.length > 0) {
-            var txts = [];
-            for(var k=0; k<opt.feedback_tags.length; k++) {
-                if(tags.indexOf(opt.feedback_tags[k].id) > -1) txts.push(opt.feedback_tags[k].feedback_text);
-            }
-            state.feedback[itemId] = txts.join(' ');
+    // Styles
+    var sOverlay = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.2);display:flex;align-items:flex-start;justify-content:center;z-index:99999;font-family:system-ui,sans-serif;padding-top:20px;overflow-y:auto;pointer-events:none";
+    var sModal = "background:white;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);width:90%;max-width:550px;height:80vh;max-height:800px;overflow:hidden;display:flex;flex-direction:column;cursor:grab;user-select:none;margin-bottom:20px;pointer-events:auto";
+    var sHeader = "padding:15px 20px;border-bottom:1px solid #e0e0e0;font-size:18px;font-weight:600;color:#333;cursor:grab;display:flex;justify-content:space-between;align-items:center";
+    var sContent = "padding:20px;flex:1;color:#666;font-size:14px;line-height:1.6;overflow-y:auto";
+    var sGroupHeader = "margin:20px 0 10px;font-size:16px;font-weight:bold;color:#1d4ed8;border-bottom:2px solid #1d4ed8;padding-bottom:4px";
+    var sItemContainer = "margin-bottom:8px;border:1px solid #e0e0e0;border-radius:4px;overflow:hidden";
+    var sItemHeader = "width:100%;padding:10px 16px;background:#f5f5f5;border:none;text-align:left;cursor:pointer;font-weight:500;color:#333;display:flex;justify-content:space-between;align-items:center";
+    var sItemBody = "display:none;padding:12px 16px;border-top:1px solid #e0e0e0;background:#fafafa";
+    var sBtnGroup = "margin-bottom:8px;display:flex;gap:6px";
+    var sBtnBase = "flex:1;padding:8px;border:1px solid;border-radius:4px;cursor:pointer;font-weight:500;font-size:12px;transition:all 0.2s";
+    var sSelect = "width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;margin-bottom:8px;font-size:13px";
+    var sTextarea = "width:100%;border:1px solid #ccc;border-radius:4px;padding:8px;font-family:inherit;resize:vertical;height:50px;font-size:13px";
+    var sInput = "width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:13px;box-sizing:border-box";
+    var sLabel = "display:block;margin-bottom:4px;font-weight:600;font-size:12px;color:#333";
+    var sFooter = "padding:16px;border-top:1px solid #e0e0e0;display:flex;gap:12px;justify-content:flex-end";
+    var sBtnCancel = "padding:8px 16px;border:1px solid #ccc;background:white;border-radius:4px;cursor:pointer;font-size:14px;color:#333";
+    var sBtnGenerate = "padding:8px 16px;border:none;background:#2563eb;color:white;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500";
+    var sTagContainer = "display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px";
+
+    var createElement = function(tag, css) {
+        var el = document.createElement(tag);
+        if(css) el.style.cssText = css;
+        return el;
+    };
+
+    var addListener = function(el, event, handler) {
+        el.addEventListener(event, handler);
+    };
+
+    var getTheme = function(item, sel) {
+        if(item.item_type === 'dropdown_custom') return 'gray';
+        var correctOpt = item.options.filter(function(o){ return o.id === sel; })[0];
+        if(!correctOpt) return 'gray';
+        if(correctOpt.is_correct) return 'green';
+        return 'red';
+    };
+
+    var getColors = function(theme) {
+        if(theme === 'green') return { bg: C_GREEN_BG, txt: C_GREEN_TXT, border: C_GREEN_BORDER, header: C_HEADER_GREEN };
+        if(theme === 'red') return { bg: C_RED_BG, txt: C_RED_TXT, border: C_RED_BORDER, header: C_HEADER_RED };
+        return { bg: C_GRAY_BG, txt: C_GRAY_TXT, border: C_GRAY_BORDER, header: C_HEADER_GRAY };
+    };
+
+    var updateText = function(key) {
+        var s = state[key];
+        if(!s.domTextarea) return;
+        
+        var txt = "";
+        if(s.selectedTags.length > 0) {
+            txt = s.selectedTags.map(function(t){ return t.feedback_text; }).join(" ");
         } else {
-            state.feedback[itemId] = (opt.feedback_general && opt.feedback_general[0]) ? opt.feedback_general[0].feedback_text : "";
+            var genFeedback = globalFeedbackGeneral.filter(function(f){ 
+                return f.option_id === s.sel; 
+            })[0];
+            txt = genFeedback ? genFeedback.feedback_text : "";
         }
-    }
+        
+        s.text = txt;
+        s.domTextarea.value = txt;
+        s.domTextarea.dispatchEvent(new Event('input'));
+    };
 
-    function scrape() {
-        var h4s = document.querySelectorAll('h4'), id="", adv="", ani="", dur="";
-        for(var i=0; i<h4s.length; i++) {
-            var t = h4s[i].textContent.trim(), v = h4s[i].nextElementSibling ? h4s[i].nextElementSibling.textContent.trim() : "";
-            if(t.indexOf('Interaction ID')>-1) id=v; if(t.indexOf('ANI')>-1) ani=v; if(t.indexOf('DNIS')>-1) ani = ani?ani+" / "+v:v; if(t.indexOf('Call Duration')>-1) dur=v;
+    var refreshAllUI = function() {
+        Object.keys(state).forEach(function(key){
+            if(state[key].refreshUI) state[key].refreshUI();
+            if(state[key].domTextarea) {
+                state[key].domTextarea.value = state[key].text;
+            }
+        });
+    };
+
+    var extractText = function(selector) { 
+        var el = document.querySelector(selector); 
+        return el ? el.textContent.trim() : ""; 
+    };
+
+    var extractTranscript = function() {
+        var els = document.querySelectorAll('.spec-transcript-content');
+        return Array.from(els).map(function(el){ return el.innerText.trim(); }).join("\n");
+    };
+
+    var generateSummary = function() {
+        var transcript = extractTranscript();
+        if(!transcript) {
+            showToast("No transcript found on page.", true);
+            return Promise.resolve(null);
         }
-        var h2 = document.querySelector('.review-info h2'); adv = h2?h2.textContent.trim():"";
-        state.header = { id: id, adv: adv, ani: ani, dur: dur };
-    }
+        
+        return fetch(API_BASE_URL + '/api/summarize', {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transcript: transcript })
+        })
+        .then(function(res){ return res.json(); })
+        .then(function(data){ return data.summary || null; })
+        .catch(function(e){
+            console.error("Summary Generation Failed:", e);
+            showToast("Failed to generate summary", true);
+            return null;
+        });
+    };
 
-    function render() {
-        var body = document.getElementById('qa-tracker-body'); if(!body) return;
-        body.innerHTML = '<div class="qa-compact-grid">' +
-        '<div class="qa-field-wrap"><span class="qa-field-icon">\uD83C\uDD94</span><input class="qa-field-input" id="h-id" placeholder="Interaction ID" value="'+(state.header.id||"")+'"></div>' +
-        '<div class="qa-field-wrap"><span class="qa-field-icon">\uD83D\uDC64</span><input class="qa-field-input" id="h-adv" placeholder="Advocate Name" value="'+(state.header.adv||"")+'"></div>' +
-        '<div class="qa-field-wrap"><span class="qa-field-icon">\uD83D\uDCDE</span><input class="qa-field-input" id="h-ani" placeholder="ANI/DNIS" value="'+(state.header.ani||"")+'"></div>' +
-        '<div style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">' +
-            '<div class="qa-field-wrap"><span class="qa-field-icon">\uD83D\uDD22</span><input class="qa-field-input" id="h-case" placeholder="Case #"></div>' +
-            '<div class="qa-field-wrap"><span class="qa-field-icon">\u23F1</span><input class="qa-field-input" id="h-dur" placeholder="Call Duration" value="'+(state.header.dur||"")+'"></div>' +
-        '</div>' +
-        '<div style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">' +
-            '<div style="margin-bottom:12px"><label class="qa-label-small">Date of Interaction</label><input type="date" class="qa-field-input" style="border:1px solid #ccc; padding:6px; border-radius:4px" id="h-datei"></div>' +
-            '<div style="margin-bottom:12px"><label class="qa-label-small">Date of Evaluation</label><input type="date" class="qa-field-input" style="border:1px solid #ccc; padding:6px; border-radius:4px" id="h-datee" value="'+new Date().toISOString().split('T')[0]+'"></div>' +
-        '</div>' +
-        '<div class="qa-field-wrap" style="grid-column: 1 / -1;"><span class="qa-field-icon">\uD83D\uDCC2</span><input class="qa-field-input" id="h-cat" placeholder="Case Category" value="Payroll > "></div>' +
-        '<div class="qa-field-wrap" style="grid-column: 1 / -1; align-items:flex-start;"><span class="qa-field-icon" style="margin-top:3px">✍</span><textarea class="qa-field-input" id="h-issue" rows="2" placeholder="Issue/Concern"></textarea></div></div>';
+    var getInteractionId = function() {
+        var h4s = Array.from(document.querySelectorAll('h4'));
+        var h4 = h4s.find(function(el){ return el.textContent.trim() === 'Interaction ID'; });
+        return h4 && h4.nextElementSibling ? h4.nextElementSibling.textContent.trim() : "";
+    };
 
-        state.structure.forEach(function(g) {
-            var t = document.createElement('div'); t.className = 'qa-section-title'; t.textContent = g.title; body.appendChild(t);
-            g.items.forEach(function(item) {
-                var curOpt = item.options.filter(function(o){ return o.id === state.answers[item.id]; })[0];
-                var hClr = curOpt ? "header-" + (curOpt.color || "default") : "";
-                var card = document.createElement('div'); card.className = 'qa-card' + (state.expanded[item.id] ? ' expanded' : '');
-                var head = document.createElement('div'); head.className = 'qa-card-header ' + hClr;
-                var left = document.createElement('div'); left.style.display = 'flex'; left.style.alignItems = 'center';
-                var cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'qa-checkbox'; cb.checked = !!state.checked[item.id];
-                cb.onclick = function(e){ e.stopPropagation(); state.checked[item.id] = this.checked; };
-                var lbl = document.createElement('span'); lbl.className = 'qa-item-label'; lbl.textContent = item.short_name || item.question_text;
-                left.appendChild(cb); left.appendChild(lbl);
-                var arr = document.createElement('span'); arr.textContent = state.expanded[item.id] ? '\u25B2' : '\u25BC';
-                head.appendChild(left); head.appendChild(arr);
-                head.onclick = function(){ state.expanded[item.id] = !state.expanded[item.id]; render(); };
-                var cont = document.createElement('div'); cont.className = 'qa-card-body';
-                var bGrp = document.createElement('div'); bGrp.className = 'qa-btn-group';
-                item.options.forEach(function(o) {
-                    var b = document.createElement('button'); b.className = 'qa-opt-btn ' + (o.color ? 'btn-' + o.color : 'btn-default') + (state.answers[item.id] === o.id ? ' selected' : '');
-                    b.textContent = o.label; b.onclick = function(){ state.answers[item.id] = o.id; state.selectedTags[item.id] = []; updateFeedback(item.id); render(); };
-                    bGrp.appendChild(b);
+    var getAdvocateName = function() { 
+        return extractText('.review-info h2'); 
+    };
+
+    var getAniDnisOptions = function() {
+        var h4s = Array.from(document.querySelectorAll('h4'));
+        var opts = [];
+        var dnisH4 = h4s.find(function(el){ return el.textContent.trim() === 'DNIS'; });
+        if(dnisH4 && dnisH4.nextElementSibling) opts.push(dnisH4.nextElementSibling.textContent.trim());
+        var aniH4 = h4s.find(function(el){ return el.textContent.trim() === 'ANI'; });
+        if(aniH4 && aniH4.nextElementSibling) opts.push(aniH4.nextElementSibling.textContent.trim());
+        return opts;
+    };
+
+    var getCallDuration = function() {
+        var h4s = Array.from(document.querySelectorAll('h4'));
+        var h4 = h4s.find(function(el){ return el.textContent.includes('Call Duration'); });
+        if(h4 && h4.nextElementSibling) {
+            var val = parseFloat(h4.nextElementSibling.textContent.trim());
+            return isNaN(val) ? "" : Math.round(val);
+        }
+        return "";
+    };
+
+    var createCompactField = function(placeholder, icon, type, fullWidth, useLabel, initialValue, options) {
+        type = type || "text";
+        fullWidth = fullWidth || false;
+        useLabel = useLabel || false;
+        initialValue = initialValue || "";
+        options = options || [];
+
+        var wrapper = createElement("div");
+        if(fullWidth) wrapper.style.gridColumn = "1 / -1";
+
+        if(useLabel) {
+            var lbl = createElement("label");
+            lbl.textContent = placeholder;
+            lbl.style.cssText = sLabel;
+            var input = createElement("input");
+            input.type = type;
+            input.style.cssText = sInput;
+            if(initialValue) input.value = initialValue;
+            wrapper.appendChild(lbl);
+            wrapper.appendChild(input);
+            return { div: wrapper, input: input };
+        } else {
+            var container = createElement("div");
+            container.style.cssText = "display:flex;align-items:center;border:1px solid #ccc;border-radius:4px;padding:6px 10px;background:white;transition:border-color 0.2s";
+            
+            var ico = createElement("span");
+            ico.textContent = icon;
+            ico.style.cssText = "margin-right:8px;font-size:14px;opacity:0.7;user-select:none;min-width:18px;text-align:center";
+            
+            var input;
+            if(options && options.length > 0) {
+                input = createElement("select");
+                input.style.cssText = "width:100%;border:none;outline:none;font-family:inherit;font-size:13px;background:transparent;cursor:pointer";
+                options.forEach(function(opt){
+                    var o = createElement("option");
+                    o.value = opt;
+                    o.textContent = opt;
+                    input.appendChild(o);
                 });
-                cont.appendChild(bGrp);
-                if(curOpt && curOpt.feedback_tags && curOpt.feedback_tags.length > 0) {
-                    var tGrp = document.createElement('div'); tGrp.className = 'qa-tag-group';
-                    curOpt.feedback_tags.forEach(function(tag) {
-                        var tb = document.createElement('div'); var isS = (state.selectedTags[item.id] || []).indexOf(tag.id) > -1;
-                        tb.className = 'qa-tag-btn' + (isS ? ' selected' : ''); tb.textContent = tag.tag_label;
-                        tb.onclick = function() {
-                            var c = state.selectedTags[item.id] || []; var i = c.indexOf(tag.id); if(i > -1) c.splice(i, 1); else c.push(tag.id);
-                            state.selectedTags[item.id] = c; updateFeedback(item.id); render();
-                        }; tGrp.appendChild(tb);
-                    }); cont.appendChild(tGrp);
+            } else if(type === "textarea") {
+                input = createElement("textarea");
+                input.style.cssText = "width:100%;border:none;outline:none;font-family:inherit;font-size:13px;resize:vertical;height:60px;padding:0";
+                input.placeholder = placeholder;
+                container.style.alignItems = "flex-start";
+                ico.style.marginTop = "3px";
+                if(initialValue) input.value = initialValue;
+            } else {
+                input = createElement("input");
+                input.type = type;
+                input.style.cssText = "width:100%;border:none;outline:none;font-family:inherit;font-size:13px;background:transparent";
+                input.placeholder = placeholder;
+                if(initialValue) input.value = initialValue;
+            }
+
+            addListener(input, "focus", function(){ container.style.borderColor = "#2563eb"; });
+            addListener(input, "blur", function(){ container.style.borderColor = "#ccc"; });
+
+            container.appendChild(ico);
+            container.appendChild(input);
+            wrapper.appendChild(container);
+            return { div: wrapper, input: input };
+        }
+    };
+
+    var showToast = function(msg, isError) {
+        isError = isError !== false;
+        var toast = createElement("div");
+        toast.textContent = msg;
+        toast.style.cssText = "position:fixed;bottom:20px;right:20px;background:" + (isError ? '#ef4444' : '#10b981') + ";color:white;padding:12px 20px;border-radius:6px;box-shadow:0 10px 15px -3px rgba(0, 0, 0, 0.1);z-index:100000;font-size:14px;font-weight:500;opacity:0;transition:opacity 0.3s ease-in-out;pointer-events:none;";
+        document.body.appendChild(toast);
+        requestAnimationFrame(function(){ toast.style.opacity = "1"; });
+        setTimeout(function(){
+            toast.style.opacity = "0";
+            setTimeout(function(){ toast.remove(); }, 300);
+        }, 3000);
+    };
+
+    var findGroupContainer = function(name) {
+        var h2s = Array.from(document.querySelectorAll('h2'));
+        var h2 = h2s.find(function(el){ return el.textContent.trim().includes(name); });
+        return h2 ? h2.closest('.padding-xlarge') : null;
+    };
+
+    // Create UI
+    var overlay = createElement("div", sOverlay);
+    overlay.id = "qa-modal-overlay";
+    var modal = createElement("div", sModal);
+
+    var isDragging = false, startX = 0, startY = 0, initialX = 0, initialY = 0;
+    var header = createElement("div", sHeader);
+    header.innerHTML = "<span>QA Form Tool</span><span style='font-size:12px;color:#999'>v3.1</span>";
+
+    addListener(header, "mousedown", function(e){
+        if(e.target === header || e.target.parentNode === header) {
+            isDragging = true;
+            startX = e.clientX - initialX;
+            startY = e.clientY - initialY;
+            header.style.cursor = "grabbing";
+        }
+    });
+    addListener(document, "mousemove", function(e){
+        if(isDragging) {
+            initialX = e.clientX - startX;
+            initialY = e.clientY - startY;
+            modal.style.transform = "translate(" + initialX + "px, " + initialY + "px)";
+        }
+    });
+    addListener(document, "mouseup", function(){
+        isDragging = false;
+        header.style.cursor = "grab";
+    });
+
+    var contentContainer = createElement("div", sContent);
+
+    // Header Fields
+    var headerFieldsContainer = createElement("div");
+    headerFieldsContainer.style.cssText = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:15px;padding-bottom:15px;border-bottom:1px solid #eee";
+
+    var fInteractionId = createCompactField("Interaction ID", "🆔", "text", false, false, getInteractionId());
+    var fAdvocateName = createCompactField("Advocate Name", "👤", "text", false, false, getAdvocateName());
+    var aniOpts = getAniDnisOptions();
+    var fCallAni = createCompactField("Call ANI/DNIS", "📞", "text", false, false, "", aniOpts);
+
+    headerFieldsContainer.appendChild(fInteractionId.div);
+    headerFieldsContainer.appendChild(fAdvocateName.div);
+    headerFieldsContainer.appendChild(fCallAni.div);
+
+    var caseDurationRow = createElement("div");
+    caseDurationRow.style.cssText = "grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;";
+    var fCaseNumber = createCompactField("Case #", "🔢");
+    var fCallDuration = createCompactField("Call Duration", "⏱️", "text", false, false, getCallDuration());
+    caseDurationRow.appendChild(fCaseNumber.div);
+    caseDurationRow.appendChild(fCallDuration.div);
+    headerFieldsContainer.appendChild(caseDurationRow);
+
+    var dateRow = createElement("div");
+    dateRow.style.cssText = "grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;";
+    var fDateInteraction = createCompactField("Date of Interaction", "", "date", false, true);
+    var fDateEvaluation = createCompactField("Date of Evaluation", "", "date", false, true);
+    fDateEvaluation.input.valueAsDate = new Date();
+    dateRow.appendChild(fDateInteraction.div);
+    dateRow.appendChild(fDateEvaluation.div);
+    headerFieldsContainer.appendChild(dateRow);
+
+    var fCaseCategory = createCompactField("Case Category", "🗂️", "text", true);
+    headerFieldsContainer.appendChild(fCaseCategory.div);
+
+    var fIssueConcern = createCompactField("Issue/Concern", "✍️", "textarea", true);
+    
+    // Summary Button
+    var btnSummary = createElement("span");
+    btnSummary.textContent = "✨";
+    btnSummary.title = "Generate Summary from Transcript";
+    btnSummary.style.cssText = "position:absolute; right:8px; top:8px; cursor:pointer; font-size:16px; opacity:0.6; user-select:none; z-index:5";
+    
+    var issueContainer = fIssueConcern.div.firstChild;
+    if(issueContainer) {
+        issueContainer.style.position = "relative";
+        issueContainer.appendChild(btnSummary);
+        addListener(btnSummary, "mouseenter", function(){ btnSummary.style.opacity = "1"; });
+        addListener(btnSummary, "mouseleave", function(){ btnSummary.style.opacity = "0.6"; });
+        addListener(btnSummary, "click", function(e){
+            e.stopPropagation();
+            var originalIcon = btnSummary.textContent;
+            btnSummary.textContent = "⏳";
+            btnSummary.style.cursor = "wait";
+            generateSummary().then(function(summary){
+                if(summary) {
+                    fIssueConcern.input.value = summary;
+                    fIssueConcern.input.dispatchEvent(new Event('input'));
+                    showToast("Summary generated!", false);
                 }
-                var area = document.createElement('textarea'); area.className = 'qa-textarea'; area.placeholder = 'Comments...'; area.value = state.feedback[item.id] || '';
-                area.oninput = function(){ state.feedback[item.id] = this.value; }; cont.appendChild(area);
-                card.appendChild(head); card.appendChild(cont); body.appendChild(card);
+                btnSummary.textContent = originalIcon;
+                btnSummary.style.cursor = "pointer";
             });
         });
     }
+    headerFieldsContainer.appendChild(fIssueConcern.div);
 
-    function automate() {
-        var tasks = [];
-        state.structure.forEach(function(g){ g.items.forEach(function(i){
-            if(state.checked[i.id] && state.answers[i.id]) {
-                var o = i.options.filter(function(opt){ return opt.id === state.answers[i.id]; })[0];
-                tasks.push({ g: g.title, q: i.question_text, a: o.label, f: state.feedback[i.id], x: i.order_index + 1 });
-            }
-        });});
-        var run = function(idx) {
-            if(idx >= tasks.length) return;
-            var t = tasks[idx], h2s = document.querySelectorAll('h2'), h2 = null;
-            for(var i=0; i<h2s.length; i++) { if(h2s[i].textContent.indexOf(t.g) > -1) h2 = h2s[i]; }
-            var cont = h2 ? h2.closest('.padding-xlarge') || h2.parentElement : document;
-            var el = cont.querySelector('[data-idx="' + t.x + '"]');
-            if(el) {
-                el.querySelector('div[style*="cursor: pointer"]').click();
-                setTimeout(function(){
-                    var bs = el.querySelectorAll('button'), b = null;
-                    for(var j=0; j<bs.length; j++) { if(bs[j].textContent.trim().toLowerCase() === t.a.toLowerCase()) b = bs[j]; }
-                    if(b) b.click();
-                    setTimeout(function(){
-                        var a = el.querySelector('textarea'); if(a){ a.value = t.f || ("Automated: " + t.a); a.dispatchEvent(new Event('input', {bubbles:true})); }
-                        run(idx + 1);
-                    }, 1000);
-                }, 400);
-            } else { run(idx + 1); }
-        }; run(0);
-    }
+    contentContainer.appendChild(headerFieldsContainer);
 
-    var root = document.createElement('div'); root.id = 'qa-tracker-root';
-    var st = document.createElement('style'); st.textContent = styles; document.head.appendChild(st);
-    root.innerHTML = '<div id="qa-tracker-main"><div id="qa-tracker-header"><span>QA Form Tool</span><span onclick="document.getElementById(\'qa-tracker-root\').remove()" style="cursor:pointer">\u2715</span></div><div id="qa-tracker-body">Loading...</div><div id="qa-tracker-footer"><button class="qa-btn qa-btn-cancel" onclick="document.getElementById(\'qa-tracker-root\').remove()">Cancel</button><button class="qa-btn qa-btn-save">Save</button><button class="qa-btn qa-btn-gen" id="qa-g">Generate</button><button class="qa-btn qa-btn-both">Save & Generate</button></div></div>';
-    document.body.appendChild(root);
-    document.getElementById('qa-g').onclick = automate;
-    
-    var m = document.getElementById('qa-tracker-main'), h = document.getElementById('qa-tracker-header');
-    h.onmousedown = function(e) {
-        if(e.target !== h && e.target.parentNode !== h) return;
-        var p3 = e.clientX, p4 = e.clientY;
-        document.onmouseup = function(){ document.onmouseup = null; document.onmousemove = null; };
-        document.onmousemove = function(e){
-            var p1 = p3 - e.clientX, p2 = p4 - e.clientY; p3 = e.clientX; p4 = e.clientY;
-            m.style.top = (m.offsetTop - p2) + "px"; m.style.left = (m.offsetLeft - p1) + "px"; m.style.right = 'auto';
+    // Save Logic
+    var saveRecord = function() {
+        var items = Object.keys(state).map(function(key){
+            var s = state[key];
+            return {
+                item_id: key.split('-')[1],
+                answer_id: s.sel,
+                answer_text: s.itemType === 'dropdown_custom' ? s.options[s.selIndex].label : (s.sel === s.options.filter(function(o){ return o.is_correct; })[0].id ? 'Yes' : 'No'),
+                feedback_text: s.text,
+                selected_tags: s.selectedTags.map(function(t){ return t.tag_label; })
+            };
+        });
+
+        var payload = {
+            form_id: FORM_ID,
+            existing_record_id: existingRecordId,
+            header_data: {
+                interaction_id: fInteractionId.input.value,
+                advocate_name: fAdvocateName.input.value,
+                call_ani_dnis: fCallAni.input.value,
+                case_number: fCaseNumber.input.value,
+                call_duration: fCallDuration.input.value,
+                interaction_date: fDateInteraction.input.value,
+                evaluation_date: fDateEvaluation.input.value,
+                case_category: fCaseCategory.input.value,
+                issue_concern: fIssueConcern.input.value,
+                page_url: window.location.href
+            },
+            items: items
         };
+
+        return fetch(API_BASE_URL + '/api/embed/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(function(res){ return res.json(); })
+        .then(function(data){
+            if(data.success) {
+                existingRecordId = data.submission_id;
+                return true;
+            }
+            throw new Error(data.error || "Save failed");
+        });
     };
 
-    // Fetch form structure from API
+    var checkExistingRecord = function() {
+        var iId = fInteractionId.input.value.trim();
+        if(!iId) return;
+
+        fetch(API_BASE_URL + '/api/embed/check?interaction_id=' + iId + '&form_id=' + FORM_ID)
+            .then(function(res){ return res.json(); })
+            .then(function(result){
+                if(result.data) {
+                    var record = result.data;
+                    existingRecordId = record.id;
+                    
+                    if(record.advocate_name) fAdvocateName.input.value = record.advocate_name;
+                    if(record.call_ani_dnis) fCallAni.input.value = record.call_ani_dnis;
+                    if(record.case_number) fCaseNumber.input.value = record.case_number;
+                    if(record.call_duration) fCallDuration.input.value = record.call_duration;
+                    if(record.interaction_date) fDateInteraction.input.value = record.interaction_date.split('T')[0];
+                    if(record.evaluation_date) fDateEvaluation.input.value = record.evaluation_date.split('T')[0];
+                    if(record.case_category) fCaseCategory.input.value = record.case_category;
+                    if(record.issue_concern) fIssueConcern.input.value = record.issue_concern;
+
+                    if(record.items) {
+                        record.items.forEach(function(rItem){
+                            // Find corresponding state key. record.items has item_id
+                            var key = Object.keys(state).find(function(k){ return k.endsWith(rItem.item_id); });
+                            if(key && state[key]) {
+                                state[key].sel = rItem.answer_id;
+                                state[key].text = rItem.feedback_text || "";
+                                // Find selIndex
+                                state[key].selIndex = state[key].options.findIndex(function(o){ return o.id === rItem.answer_id; });
+                                if(state[key].selIndex === -1) state[key].selIndex = 0;
+                                
+                                if(rItem.selected_tags) {
+                                    state[key].selectedTags = globalFeedbackTags.filter(function(gt){
+                                        return rItem.selected_tags.includes(gt.tag_label) && gt.option_id === rItem.answer_id;
+                                    });
+                                }
+                            }
+                        });
+                    }
+                    refreshAllUI();
+                    showToast("Previous evaluation loaded!", false);
+                }
+            });
+    };
+
+    addListener(fInteractionId.input, 'blur', checkExistingRecord);
+
+    // Footer
+    var footer = createElement("div", sFooter);
+    var btnCancel = createElement("button", sBtnCancel);
+    btnCancel.textContent = "Cancel";
+    addListener(btnCancel, "click", function(){ overlay.remove(); });
+
+    var btnSaveOnly = createElement("button", sBtnGenerate);
+    btnSaveOnly.textContent = "Save";
+    btnSaveOnly.style.backgroundColor = "#059669";
+    addListener(btnSaveOnly, "click", function(){
+        btnSaveOnly.disabled = true;
+        btnSaveOnly.textContent = "Saving...";
+        saveRecord().then(function(){
+            showToast("Saved Successfully!", false);
+        }).catch(function(e){
+            showToast(e.message, true);
+        }).finally(function(){
+            btnSaveOnly.disabled = false;
+            btnSaveOnly.textContent = "Save";
+        });
+    });
+
+    var btnGenerateOnly = createElement("button", sBtnGenerate);
+    btnGenerateOnly.textContent = "Generate";
+    btnGenerateOnly.style.backgroundColor = "#4f46e5";
+
+    var btnGenerate = createElement("button", sBtnGenerate);
+    btnGenerate.textContent = "Generate & Save";
+
+    var handleGeneration = function(saveToDb) {
+        var activeBtn = saveToDb ? btnGenerate : btnGenerateOnly;
+        var originalText = activeBtn.textContent;
+        activeBtn.textContent = "Generating... ⏳";
+
+        [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel].forEach(function(b){
+            b.disabled = true;
+            b.style.opacity = "0.7";
+            b.style.cursor = "not-allowed";
+        });
+
+        var allKeys = Object.keys(state);
+        var checkedKeys = allKeys.filter(function(k){ return state[k].checked; });
+        var targetKeys = checkedKeys.length > 0 ? checkedKeys : allKeys;
+
+        var index = 0;
+        var processNext = function() {
+            if(index >= targetKeys.length) {
+                if(saveToDb) {
+                    saveRecord().then(function(){
+                        activeBtn.textContent = originalText;
+                        [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel].forEach(function(b){
+                            b.disabled = false;
+                            b.style.opacity = "1";
+                            b.style.cursor = "pointer";
+                        });
+                        alert("✓ Generated and Saved!");
+                        overlay.remove();
+                    }).catch(function(e){
+                        alert("Generated, but save failed: " + e.message);
+                        activeBtn.textContent = originalText;
+                        [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel].forEach(function(b){
+                            b.disabled = false;
+                            b.style.opacity = "1";
+                        });
+                    });
+                } else {
+                    activeBtn.textContent = originalText;
+                    [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel].forEach(function(b){
+                        b.disabled = false;
+                        b.style.opacity = "1";
+                        b.style.cursor = "pointer";
+                    });
+                    alert("✓ Generated!");
+                    overlay.remove();
+                }
+                return;
+            }
+
+            var key = targetKeys[index];
+            var s = state[key];
+            var container = findGroupContainer(s.groupName);
+
+            if(container) {
+                var question = container.querySelector('[data-idx="' + s.itemId + '"]');
+                
+                if(question) {
+                    var control = question.querySelector('[data-testid="SegmentedControl"]');
+                    if(control) {
+                        var buttons = Array.from(control.querySelectorAll('button'));
+                        if(s.itemType === 'dropdown_custom') {
+                            if(buttons[s.selIndex]) buttons[s.selIndex].click();
+                        } else {
+                            var correctOpt = s.options.filter(function(o){ return o.id === s.sel; })[0];
+                            if(correctOpt) {
+                                var btnIdx = correctOpt.is_correct ? 0 : 1;
+                                if(buttons[btnIdx]) buttons[btnIdx].click();
+                            }
+                        }
+                    }
+
+                    setTimeout(function(){
+                        container = findGroupContainer(s.groupName);
+                        var freshQuestion = container ? container.querySelector('[data-idx="' + s.itemId + '"]') : null;
+
+                        if(freshQuestion) {
+                            var finalText = s.text.trim();
+                            if(finalText) {
+                                var txtArea = freshQuestion.querySelector('textarea');
+                                if(txtArea) {
+                                    var proto = Object.getPrototypeOf(txtArea);
+                                    var setter = Object.getOwnPropertyDescriptor(proto, "value").set;
+                                    if(setter) setter.call(txtArea, finalText); 
+                                    else txtArea.value = finalText;
+                                    txtArea.dispatchEvent(new Event("input", { bubbles: true }));
+                                    txtArea.dispatchEvent(new Event("change", { bubbles: true }));
+                                }
+                            }
+                        }
+
+                        setTimeout(function(){
+                            index++;
+                            processNext();
+                        }, 500);
+                    }, 2500);
+                    return;
+                }
+            }
+
+            index++;
+            processNext();
+        };
+        processNext();
+    };
+
+    addListener(btnGenerate, "click", function(){ handleGeneration(true); });
+    addListener(btnGenerateOnly, "click", function(){ handleGeneration(false); });
+
+    footer.appendChild(btnCancel);
+    footer.appendChild(btnSaveOnly);
+    footer.appendChild(btnGenerateOnly);
+    footer.appendChild(btnGenerate);
+
+    modal.appendChild(header);
+    modal.appendChild(contentContainer);
+    modal.appendChild(footer);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Fetch and render form
     fetch(API_BASE_URL + '/api/embed/form/' + FORM_ID)
         .then(function(response) {
-            if (!response.ok) {
-                throw new Error('Failed to load form: ' + response.status);
-            }
+            if (!response.ok) throw new Error('Failed to load form: ' + response.status);
             return response.json();
         })
         .then(function(data) {
-            if (data.error) {
-                throw new Error(data.error);
-            }
+            if (data.error) throw new Error(data.error);
             
-            // The API returns { form, structure } where structure is already nested
-            state.structure = data.structure;
-            
-            // Initialize state for each item
-            state.structure.forEach(function(group) {
-                group.items.forEach(function(item) {
-                    // Find default option
-                    var def = item.options.filter(function(o){ return o.is_default; })[0];
-                    if(def) { 
-                        state.answers[item.id] = def.id; 
-                        state.feedback[item.id] = (def.feedback_general && def.feedback_general[0]) ? def.feedback_general[0].feedback_text : ""; 
-                    }
-                    state.checked[item.id] = true;
+            globalStructure = data.structure;
+            globalFeedbackGeneral = [];
+            globalFeedbackTags = [];
+
+            // Flatten feedback templates for easier lookup
+            globalStructure.forEach(function(group){
+                group.items.forEach(function(item){
+                    item.options.forEach(function(opt){
+                        if(opt.feedback_general) {
+                            globalFeedbackGeneral = globalFeedbackGeneral.concat(opt.feedback_general);
+                        }
+                        if(opt.feedback_tags) {
+                            globalFeedbackTags = globalFeedbackTags.concat(opt.feedback_tags);
+                        }
+                    });
                 });
             });
-            
-            scrape(); 
-            render();
-        })
-        .catch(function(error) {
-            console.error('QA Tool Error:', error);
-            var body = document.getElementById('qa-tracker-body');
-            if (body) {
-                body.innerHTML = '<div style="padding:20px;color:#dc2626;"><strong>Error loading form:</strong><br>' + error.message + '</div>';
-            }
+
+            // Initialize state
+            globalStructure.forEach(function(group){
+                group.items.forEach(function(item){
+                    var key = group.id + "-" + item.id;
+                    var defaultOpt = item.options.filter(function(o){ return o.is_default; })[0] || item.options[0];
+                    
+                    state[key] = {
+                        sel: defaultOpt ? defaultOpt.id : null,
+                        selIndex: defaultOpt ? item.options.indexOf(defaultOpt) : 0,
+                        text: "",
+                        checked: false,
+                        groupName: group.title,
+                        itemId: item.order_index + 1,
+                        itemType: item.item_type,
+                        options: item.options,
+                        selectedTags: [],
+                        domTextarea: null,
+                        refreshUI: null
+                    };
+                    updateText(key);
+                });
+            });
+
+            // Render groups
+            globalStructure.forEach(function(group){
+                var groupTitle = createElement("div", sGroupHeader);
+                groupTitle.textContent = group.title;
+                contentContainer.appendChild(groupTitle);
+
+                group.items.forEach(function(item){
+                    var key = group.id + "-" + item.id;
+                    var itemContainer = createElement("div", sItemContainer);
+                    var itemHeader = createElement("div", sItemHeader);
+                    var leftGroup = createElement("div");
+                    leftGroup.style.cssText = "display:flex;align-items:center;gap:10px";
+
+                    var checkbox = createElement("input");
+                    checkbox.type = "checkbox";
+                    checkbox.style.cursor = "pointer";
+                    addListener(checkbox, "click", function(e){ 
+                        e.stopPropagation(); 
+                        state[key].checked = e.target.checked; 
+                    });
+
+                    var label = createElement("span");
+                    label.textContent = (item.order_index + 1) + ". " + (item.short_name || item.question_text);
+                    leftGroup.appendChild(checkbox);
+                    leftGroup.appendChild(label);
+
+                    var arrow = createElement("span");
+                    arrow.style.fontSize = "10px";
+                    arrow.textContent = "▼";
+                    itemHeader.appendChild(leftGroup);
+                    itemHeader.appendChild(arrow);
+
+                    var expanded = false;
+                    var itemBody = createElement("div", sItemBody);
+                    var tagContainer = createElement("div", sTagContainer);
+
+                    var updateHeaderBg = function() {
+                        var hasContent = state[key].text.trim().length > 0 || state[key].selectedTags.length > 0;
+                        if(hasContent) {
+                            var theme = getTheme(item, state[key].sel);
+                            var cols = getColors(theme);
+                            itemHeader.style.background = cols.header;
+                        } else {
+                            itemHeader.style.background = expanded ? "#e8e8e8" : "#f5f5f5";
+                        }
+                    };
+
+                    var renderTags = function() {
+                        tagContainer.innerHTML = "";
+                        var currentSel = state[key].sel;
+                        var relevantTags = globalFeedbackTags.filter(function(t){ 
+                            return t.option_id === currentSel; 
+                        });
+
+                        relevantTags.forEach(function(tagData){
+                            var tagBtn = createElement("div");
+                            var theme = getTheme(item, currentSel);
+                            var cols = getColors(theme);
+                            var isActive = state[key].selectedTags.some(function(t){ return t.id === tagData.id; });
+                            
+                            if(isActive) {
+                                tagBtn.style.cssText = "padding:4px 8px;border:1px solid " + cols.border + ";border-radius:12px;font-size:11px;cursor:pointer;background:" + cols.bg + ";color:" + cols.txt + ";font-weight:500;transition:all 0.2s";
+                            } else {
+                                tagBtn.style.cssText = "padding:4px 8px;border:1px solid #ccc;border-radius:12px;font-size:11px;cursor:pointer;background:#f9fafb;color:#333;transition:all 0.2s";
+                            }
+                            tagBtn.textContent = tagData.tag_label;
+
+                            addListener(tagBtn, "click", function(){
+                                if(isActive) {
+                                    state[key].selectedTags = state[key].selectedTags.filter(function(t){ return t.id !== tagData.id; });
+                                } else {
+                                    state[key].selectedTags.push(tagData);
+                                }
+                                renderTags();
+                                updateHeaderBg();
+                                updateText(key);
+                            });
+                            tagContainer.appendChild(tagBtn);
+                        });
+                    };
+
+                    if(item.item_type === 'dropdown_custom') {
+                        var select = createElement("select", sSelect);
+                        item.options.forEach(function(opt, idx){
+                            var o = createElement("option");
+                            o.value = idx;
+                            o.textContent = opt.label;
+                            if(idx === state[key].selIndex) o.selected = true;
+                            select.appendChild(o);
+                        });
+
+                        state[key].refreshUI = function() {
+                            select.value = state[key].selIndex;
+                            checkbox.checked = state[key].checked;
+                            renderTags();
+                            updateHeaderBg();
+                        };
+
+                        addListener(select, "change", function(e){
+                            state[key].selIndex = parseInt(e.target.value);
+                            state[key].sel = item.options[state[key].selIndex].id;
+                            state[key].selectedTags = [];
+                            renderTags();
+                            updateHeaderBg();
+                            updateText(key);
+                        });
+                        itemBody.appendChild(select);
+                    } else {
+                        var btnYes = createElement("button");
+                        var btnNo = createElement("button");
+                        var yesOpt = item.options.filter(function(o){ return o.is_correct; })[0];
+                        var noOpt = item.options.filter(function(o){ return !o.is_correct; })[0];
+                        
+                        btnYes.textContent = yesOpt ? yesOpt.label : "Yes";
+                        btnNo.textContent = noOpt ? noOpt.label : "No";
+                        
+                        var btnGroup = createElement("div", sBtnGroup);
+                        btnGroup.appendChild(btnYes);
+                        btnGroup.appendChild(btnNo);
+
+                        var updateBtnStyle = function(val) {
+                            var theme = getTheme(item, val);
+                            var cols = getColors(theme);
+                            var activeStyle = sBtnBase + ";background:" + cols.bg + ";color:" + cols.txt + ";border-color:" + cols.border;
+                            var inactiveStyle = sBtnBase + ";background:white;color:#333;border-color:#ccc";
+
+                            if(val === (yesOpt ? yesOpt.id : null)) {
+                                btnYes.style.cssText = activeStyle;
+                                btnNo.style.cssText = inactiveStyle;
+                            } else {
+                                btnYes.style.cssText = inactiveStyle;
+                                btnNo.style.cssText = activeStyle;
+                            }
+                        };
+
+                        state[key].refreshUI = function() {
+                            updateBtnStyle(state[key].sel);
+                            checkbox.checked = state[key].checked;
+                            renderTags();
+                            updateHeaderBg();
+                        };
+
+                        updateBtnStyle(state[key].sel);
+
+                        addListener(btnYes, "click", function(){
+                            state[key].sel = yesOpt.id; 
+                            state[key].selectedTags = []; 
+                            updateBtnStyle(yesOpt.id); 
+                            renderTags(); 
+                            updateHeaderBg(); 
+                            updateText(key); 
+                        });
+                        addListener(btnNo, "click", function(){
+                            state[key].sel = noOpt.id; 
+                            state[key].selectedTags = []; 
+                            updateBtnStyle(noOpt.id); 
+                            renderTags(); 
+                            updateHeaderBg(); 
+                            updateText(key); 
+                        });
+                        itemBody.appendChild(btnGroup);
+                    }
+
+                    itemBody.appendChild(tagContainer);
+
+                    var textarea = createElement("textarea", sTextarea);
+                    state[key].domTextarea = textarea;
+                    textarea.placeholder = "Comments...";
+                    addListener(textarea, "input", function(e){
+                        state[key].text = e.target.value;
+                        updateHeaderBg();
+                    });
+                    itemBody.appendChild(textarea);
+
+                    addListener(itemHeader, "click", function(){
+                        expanded = !expanded;
+                        itemBody.style.display = expanded ? "block" : "none";
+                        updateHeaderBg();
+                        arrow.textContent = expanded ? "▲" : "▼";
+                        if(expanded) renderTags();
+                    });
+
+                    itemContainer.appendChild(itemHeader);
+                    itemContainer.appendChild(itemBody);
+                    contentContainer.appendChild(itemContainer);
+                    
+                    // Initial update for content
+                    updateHeaderBg();
+                });
+            });
+
+            // After everything is loaded, try to check for existing record if ID is present
+            if(fInteractionId.input.value) checkExistingRecord();
+
+        }).catch(function(err){
+            console.error(err);
+            showToast("Error loading form structure", true);
         });
 })();
