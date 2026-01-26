@@ -48,16 +48,38 @@
     };
 
     var getTheme = function(item, sel) {
-        if(item.item_type === 'dropdown_custom') return 'gray';
-        var correctOpt = item.options.filter(function(o){ return o.id === sel; })[0];
-        if(!correctOpt) return 'gray';
-        if(correctOpt.is_correct) return 'green';
-        return 'red';
+        var opt = item.options.filter(function(o){ return o.id === sel; })[0];
+        if(!opt || !opt.color) return 'gray';
+        return opt.color.toLowerCase();
     };
 
     var getColors = function(theme) {
-        if(theme === 'green') return { bg: C_GREEN_BG, txt: C_GREEN_TXT, border: C_GREEN_BORDER, header: C_HEADER_GREEN };
-        if(theme === 'red') return { bg: C_RED_BG, txt: C_RED_TXT, border: C_RED_BORDER, header: C_HEADER_RED };
+        // Standard fallbacks for named themes
+        if(theme === 'green') theme = '#22c55e';
+        if(theme === 'red') theme = '#ef4444';
+        if(theme === 'gray') theme = '#9ca3af';
+
+        // Helper to lighten/darken hex colors
+        var adjust = function(hex, amt) {
+            hex = hex.replace('#', '');
+            var num = parseInt(hex, 16);
+            var r = (num >> 16) + amt;
+            var g = ((num >> 8) & 0x00FF) + amt;
+            var b = (num & 0x0000FF) + amt;
+            var clamp = function(x){ return Math.min(255, Math.max(0, x)); };
+            return "#" + (0x1000000 + clamp(r) * 0x10000 + clamp(g) * 0x100 + clamp(b)).toString(16).slice(1);
+        };
+
+        // If theme is a hex color, derive shades
+        if(theme.indexOf('#') === 0) {
+            return {
+                bg: adjust(theme, 180),    // Very light
+                txt: adjust(theme, -120),  // Very dark
+                border: theme,             // Base color
+                header: adjust(theme, 200) // Extremely light for header
+            };
+        }
+
         return { bg: C_GRAY_BG, txt: C_GRAY_TXT, border: C_GRAY_BORDER, header: C_HEADER_GRAY };
     };
 
