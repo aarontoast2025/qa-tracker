@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test QA Bookmarklet</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .success { color: #059669; }
+        .error { color: #dc2626; }
+    </style>
+</head>
+<body>
+    <h1>QA Tracker Bookmarklet Test Page</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: API Endpoint</h2>
+        <p>Test if the API endpoint returns form data correctly</p>
+        <button onclick="testAPI()">Test API Endpoint</button>
+        <div id="api-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Load Bookmarklet Script</h2>
+        <p>Test loading the qa-form.js script (simulates bookmarklet)</p>
+        <button onclick="loadBookmarklet()">Load QA Form Script</button>
+        <div id="script-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Bookmarklet Link</h2>
+        <p>Drag this link to your bookmarks bar:</p>
+        <a href="javascript:(function(){const s=document.createElement('script');s.src='https://aarontoast2025.github.io/qa-tracker/public/qa-form.js?v='+(new Date).getTime();document.head.appendChild(s);}());" 
+           style="padding: 10px 20px; background: #059669; color: white; text-decoration: none; border-radius: 4px; display: inline-block;">
+            QA Form Tool
+        </a>
+    </div>
+
+    <script>
+        const API_URL = 'https://qa-tracker-toast.vercel.app/api/embed/form/41e96e83-dad5-4752-be7f-ae0a5dd31406';
+        const LOCAL_API_URL = 'http://localhost:3001/api/embed/form/41e96e83-dad5-4752-be7f-ae0a5dd31406';
+
+        async function testAPI() {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.innerHTML = '<p>Testing API endpoint...</p>';
+            
+            try {
+                // Try production first
+                let response = await fetch(API_URL);
+                
+                if (!response.ok) {
+                    // Try local if production fails
+                    response = await fetch(LOCAL_API_URL);
+                }
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.error}</p>`;
+                } else {
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ Success! Form loaded:</p>
+                        <pre>${JSON.stringify(data, null, 2).substring(0, 500)}...</pre>
+                        <p>Form Title: <strong>${data.form?.title || 'N/A'}</strong></p>
+                        <p>Groups: <strong>${data.structure?.length || 0}</strong></p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        function loadBookmarklet() {
+            const resultDiv = document.getElementById('script-result');
+            resultDiv.innerHTML = '<p>Loading script...</p>';
+            
+            // Remove existing script if present
+            const existing = document.getElementById('qa-tracker-root');
+            if (existing) {
+                existing.remove();
+            }
+            
+            const script = document.createElement('script');
+            script.src = 'https://aarontoast2025.github.io/qa-tracker/public/qa-form.js?v=' + (new Date).getTime();
+            script.onload = function() {
+                resultDiv.innerHTML = '<p class="success">✅ Script loaded! Check if QA form appeared on the page.</p>';
+            };
+            script.onerror = function() {
+                resultDiv.innerHTML = '<p class="error">❌ Failed to load script from GitHub Pages</p>';
+            };
+            document.head.appendChild(script);
+        }
+    </script>
+
+    <!-- Mock Stellaconnect page structure for testing automation -->
+    <div class="test-section" style="background: #f9fafb; margin-top: 40px;">
+        <h2>Mock Stellaconnect Page (for testing automation)</h2>
+        <div class="review-info">
+            <h2>John Doe</h2>
+        </div>
+        <h4>Interaction ID</h4>
+        <p>INT-12345</p>
+        <h4>ANI</h4>
+        <p>555-1234</p>
+        <h4>DNIS</h4>
+        <p>555-5678</p>
+        <h4>Call Duration</h4>
+        <p>5:30</p>
+    </div>
+</body>
+</html>

@@ -2,8 +2,7 @@
     if (document.getElementById('qa-tracker-root')) return;
     console.log("QA Tool: Initializing...");
 
-    var SUPABASE_URL = 'https://lobhwknisejjvubweall.supabase.co';
-    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvYmh3a25pc2VqanZ1YndlYWxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1Nzk4NjIsImV4cCI6MjA4NDE1NTg2Mn0.2OTSmBD62Fgcecuxps6YoaW9-lPPu1MFA7cWl1g9MUk';
+    var API_BASE_URL = 'https://qa-tracker-toast.vercel.app';
     var FORM_ID = '41e96e83-dad5-4752-be7f-ae0a5dd31406';
 
     var styles = "#qa-tracker-root { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2147483647; pointer-events: none; font-family: sans-serif; }" +
@@ -44,12 +43,6 @@
     ".qa-textarea { width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 8px; font-family: inherit; resize: vertical; height: 60px; font-size: 13px; box-sizing: border-box; }";
 
     var state = { structure: [], answers: {}, feedback: {}, checked: {}, expanded: {}, selectedTags: {}, header: {} };
-
-    function sb(table, query) {
-        return fetch(SUPABASE_URL + '/rest/v1/' + table + '?' + query, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-        }).then(function(r) { return r.json(); }).catch(function() { return []; });
-    }
 
     function updateFeedback(itemId) {
         var itm = null;
@@ -187,27 +180,43 @@
         };
     };
 
-    Promise.all([
-        sb('tracker_audit_groups', 'form_id=eq.'+FORM_ID+'&order=order_index'),
-        sb('tracker_audit_items', 'order=order_index'),
-        sb('tracker_audit_item_options', 'order=order_index'),
-        sb('feedback_general', 'select=*'),
-        sb('feedback_tags', 'select=*')
-    ]).then(function(res) {
-        var groups = res[0], items = res[1], opts = res[2], fGen = res[3], fTags = res[4];
-        state.structure = groups.map(function(g) {
-            g.items = items.filter(function(i){ return i.group_id === g.id; }).map(function(i) {
-                i.options = opts.filter(function(o){ return o.item_id === i.id; }).map(function(o) {
-                    o.feedback_general = fGen.filter(function(f){ return f.option_id === o.id; });
-                    o.feedback_tags = fTags.filter(function(f){ return f.option_id === o.id; });
-                    return o;
+    // Fetch form structure from API
+    fetch(API_BASE_URL + '/api/embed/form/' + FORM_ID)
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Failed to load form: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            // The API returns { form, structure } where structure is already nested
+            state.structure = data.structure;
+            
+            // Initialize state for each item
+            state.structure.forEach(function(group) {
+                group.items.forEach(function(item) {
+                    // Find default option
+                    var def = item.options.filter(function(o){ return o.is_default; })[0];
+                    if(def) { 
+                        state.answers[item.id] = def.id; 
+                        state.feedback[item.id] = (def.feedback_general && def.feedback_general[0]) ? def.feedback_general[0].feedback_text : ""; 
+                    }
+                    state.checked[item.id] = true;
                 });
-                var def = i.options.filter(function(o){ return o.is_default; })[0];
-                if(def) { state.answers[i.id] = def.id; state.feedback[i.id] = (def.feedback_general && def.feedback_general[0]) ? def.feedback_general[0].feedback_text : ""; }
-                state.checked[i.id] = true; return i;
             });
-            return g;
+            
+            scrape(); 
+            render();
+        })
+        .catch(function(error) {
+            console.error('QA Tool Error:', error);
+            var body = document.getElementById('qa-tracker-body');
+            if (body) {
+                body.innerHTML = '<div style="padding:20px;color:#dc2626;"><strong>Error loading form:</strong><br>' + error.message + '</div>';
+            }
         });
-        scrape(); render();
-    });
 })();
