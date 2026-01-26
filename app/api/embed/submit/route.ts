@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -8,19 +8,11 @@ export async function POST(request: Request) {
       form_id, 
       header_data, 
       items,
-      interaction_id, // Also in header_data, but good to have top level if needed
+      interaction_id,
       existing_record_id
     } = body;
 
-    const supabase = await createClient();
-    // Note: Since this is an "anonymous" submission from a bookmarklet, we might not have a user session.
-    // However, the project requirements might imply the user is logged in to the main app, or we are recording "anonymous" audits.
-    // For now, I'll try to get the user. If not logged in, we might need to allow null submitted_by or handle it.
-    // BUT, the bookmarklet is used by an agent. They might not be logged into Vercel app in the same browser session if strict cookies are used.
-    // For now, we will proceed assuming we can insert without a user or the user is optional, OR we'll use a service role if strictly necessary (but prefer not to).
-    // Actually, `createClient` uses cookie-based auth. If the user is logged into the app in another tab, the cookie *might* be sent if we set `credentials: 'include'` in the fetch.
-    // But due to Third-Party Cookie blocking, this is unreliable.
-    // SAFETY: We will assume for this MVP that `submitted_by` is nullable or we accept it being null for API submissions.
+    const supabase = createAdminClient();
 
     let submissionId = existing_record_id;
 
