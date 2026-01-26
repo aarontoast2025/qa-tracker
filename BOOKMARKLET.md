@@ -7,6 +7,7 @@ Copy the code below and paste it into the **URL** or **Address** field of a new 
 
 ```javascript
 javascript:(function(){const s=document.createElement('script');s.src='https://aarontoast2025.github.io/qa-tracker/public/qa-form.js?v='+(new Date).getTime();document.head.appendChild(s);}());
+
 ```
 
 **How it works:**
