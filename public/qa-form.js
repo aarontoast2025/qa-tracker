@@ -8,25 +8,30 @@
     var FORM_ID = '41e96e83-dad5-4752-be7f-ae0a5dd31406';
 
     var styles = `
-    #qa-tracker-root { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2147483647; pointer-events: none; font-family: -apple-system, sans-serif; }
-    #qa-tracker-main { position: fixed; top: 20px; right: 20px; width: 450px; max-height: 90vh; background: white; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.4); display: flex; flex-direction: column; pointer-events: auto; border: 1px solid #e5e7eb; overflow: hidden; }
-    #qa-tracker-header { padding: 12px 16px; background: #111827; color: white; display: flex; justify-content: space-between; align-items: center; cursor: move; }
-    #qa-tracker-body { flex: 1; overflow-y: auto; padding: 16px; background: #f9fafb; }
-    #qa-tracker-footer { padding: 12px; border-top: 1px solid #e5e7eb; background: white; display: flex; gap: 8px; justify-content: flex-end; }
-    .qa-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; padding: 12px; }
-    .qa-btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; font-size: 13px; transition: opacity 0.2s; }
+    #qa-tracker-root { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2147483647; pointer-events: none; font-family: -apple-system, system-ui, sans-serif; }
+    #qa-tracker-main { position: fixed; top: 20px; right: 20px; width: 420px; max-height: 90vh; background: white; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); display: flex; flex-direction: column; pointer-events: auto; border: 1px solid #e5e7eb; overflow: hidden; }
+    #qa-tracker-header { padding: 14px 18px; background: #111827; color: white; display: flex; justify-content: space-between; align-items: center; font-size: 14px; letter-spacing: 0.025em; }
+    #qa-tracker-body { flex: 1; overflow-y: auto; padding: 16px; background: #f9fafb; scroll-behavior: smooth; }
+    #qa-tracker-footer { padding: 12px 16px; border-top: 1px solid #e5e7eb; background: white; display: flex; gap: 8px; justify-content: flex-end; }
+    .qa-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; padding: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .qa-btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; font-size: 13px; transition: all 0.2s; }
     .qa-btn-primary { background: #2563eb; color: white; }
+    .qa-btn-primary:hover { background: #1d4ed8; }
     .qa-btn-success { background: #059669; color: white; }
-    .qa-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .qa-input { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; margin-bottom: 8px; box-sizing: border-box; }
-    .qa-section-title { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; margin: 15px 0 8px; letter-spacing: 0.05em; }
-    .qa-option-btn { flex: 1; padding: 8px; font-size: 11px; font-weight: 600; border: 1px solid #e5e7eb; background: white; cursor: pointer; text-align: center; border-radius: 6px; text-transform: uppercase; }
-    .qa-option-btn.selected { background: #eff6ff; border-color: #3b82f6; color: #1d4ed8; }
-    .qa-tag-btn { padding: 4px 8px; font-size: 10px; font-weight: 600; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 4px; cursor: pointer; text-transform: uppercase; }
-    .qa-tag-btn.selected { background: #2563eb; color: white; border-color: #1d4ed8; }
+    .qa-btn-success:hover { background: #047857; }
+    .qa-input { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; margin-bottom: 8px; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+    .qa-input:focus { border-color: #3b82f6; ring: 2px solid #93c5fd; }
+    .qa-section-title { font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase; margin: 20px 0 10px; letter-spacing: 0.05em; display: flex; align-items: center; }
+    .qa-section-title::after { content: ""; flex: 1; height: 1px; background: #e5e7eb; margin-left: 10px; }
+    .qa-option-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 6px; margin-bottom: 10px; }
+    .qa-option-btn { padding: 8px 4px; font-size: 11px; font-weight: 700; border: 1px solid #e5e7eb; background: #fff; cursor: pointer; text-align: center; border-radius: 6px; color: #4b5563; text-transform: uppercase; transition: all 0.2s; }
+    .qa-option-btn:hover { background: #f9fafb; }
+    .qa-option-btn.selected { background: #eff6ff; border-color: #3b82f6; color: #1d4ed8; box-shadow: 0 0 0 1px #3b82f6; }
+    .qa-summary-btn { cursor: pointer; color: #3b82f6; font-size: 12px; font-weight: 600; margin-top: -5px; margin-bottom: 10px; display: inline-block; }
+    .qa-summary-btn:hover { text-decoration: underline; }
     `;
 
-    var state = { structure: [], answers: {}, feedback: {}, tags: {}, header: {} };
+    var state = { structure: [], answers: {}, feedback: {}, header: {} };
 
     async function sb(path, method, body) {
         var options = {
@@ -48,7 +53,10 @@
             g.items.forEach(function(i) {
                 i.options.sort((a,b) => a.order_index - b.order_index);
                 var def = i.options.find(function(o){ return o.is_default });
-                if(def) state.answers[i.id] = def.id;
+                if(def) {
+                    state.answers[i.id] = def.id;
+                    // Note: You can add logic here to pull default feedback if available
+                }
             });
         });
         scrape();
@@ -62,13 +70,33 @@
             var h4 = h4s.find(function(el) { return el.textContent.trim().includes(txt) });
             return h4 && h4.nextElementSibling ? h4.nextElementSibling.textContent.trim() : "";
         };
+        var transcript = (function() {
+            var els = document.querySelectorAll('.spec-transcript-content');
+            return Array.from(els).map(function(el) { return el.innerText.trim(); }).join("\n");
+        })();
+
         state.header = {
             interaction_id: findH4Val('Interaction ID'),
             advocate_name: getVal('.review-info h2'),
-            call_ani_dnis: findH4Val('ANI') || findH4Val('DNIS'),
-            call_duration: findH4Val('Call Duration'),
-            page_url: window.location.href
+            transcript: transcript
         };
+    }
+
+    async function handleSummarize() {
+        var btn = document.getElementById('qa-summarize');
+        if (!state.header.transcript) { alert('No transcript found.'); return; }
+        
+        btn.textContent = 'Summarizing...';
+        try {
+            var res = await fetch(APP_URL + '/api/summarize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transcript: state.header.transcript })
+            });
+            var data = await res.json();
+            if (data.summary) document.getElementById('h-issue').value = data.summary;
+        } catch (e) { alert('Summary failed: ' + e); }
+        btn.textContent = '✨ Auto-Summarize';
     }
 
     function render() {
@@ -76,16 +104,19 @@
         if (!body) return;
         body.innerHTML = '';
         
-        // Header Info
+        // Header
         var hDiv = document.createElement('div'); hDiv.className = 'qa-card';
         hDiv.innerHTML = `
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <input class="qa-input" id="h-id" placeholder="Int ID" value="${state.header.interaction_id}">
-                <input class="qa-input" id="h-adv" placeholder="Advocate" value="${state.header.advocate_name}">
+                <div><label style="font-size:10px;font-weight:700;color:#9ca3af">INT ID</label><input class="qa-input" id="h-id" value="${state.header.interaction_id}"></div>
+                <div><label style="font-size:10px;font-weight:700;color:#9ca3af">ADVOCATE</label><input class="qa-input" id="h-adv" value="${state.header.advocate_name}"></div>
             </div>
-            <textarea class="qa-input" id="h-issue" placeholder="Issue/Concern..." rows="2"></textarea>
+            <label style="font-size:10px;font-weight:700;color:#9ca3af">ISSUE/CONCERN</label>
+            <div id="qa-summarize" class="qa-summary-btn">✨ Auto-Summarize</div>
+            <textarea class="qa-input" id="h-issue" rows="3" placeholder="Describe the issue..."></textarea>
         `;
         body.appendChild(hDiv);
+        hDiv.querySelector('#qa-summarize').onclick = handleSummarize;
 
         state.structure.forEach(function(group) {
             var gTitle = document.createElement('div'); gTitle.className = 'qa-section-title';
@@ -94,27 +125,25 @@
 
             group.items.forEach(function(item) {
                 var card = document.createElement('div'); card.className = 'qa-card';
-                card.innerHTML = `<div style="font-weight:700;font-size:12px;margin-bottom:8px;color:#374151">${item.question_text}</div>`;
+                card.innerHTML = `<div style="font-weight:700;font-size:13px;margin-bottom:10px;color:#111827">${item.question_text}</div>`;
                 
-                var grid = document.createElement('div'); grid.style.display = 'flex'; grid.style.gap = '6px';
+                var grid = document.createElement('div'); grid.className = 'qa-option-grid';
                 item.options.forEach(function(opt) {
                     var btn = document.createElement('div');
                     btn.className = 'qa-option-btn' + (state.answers[item.id] === opt.id ? ' selected' : '');
                     btn.textContent = opt.label;
-                    btn.onclick = function() { state.answers[item.id] = opt.id; state.tags[item.id] = []; render(); };
+                    btn.onclick = function() { state.answers[item.id] = opt.id; render(); };
                     grid.appendChild(btn);
                 });
                 card.appendChild(grid);
 
-                // Feedback
-                var txt = document.createElement('textarea'); txt.className = 'qa-input'; txt.style.marginTop='8px';
-                txt.placeholder = 'Comments...';
+                var txt = document.createElement('textarea'); txt.className = 'qa-input';
+                txt.placeholder = 'Feedback...';
                 txt.value = state.feedback[item.id] || '';
                 txt.oninput = function(e) { state.feedback[item.id] = e.target.value; };
                 card.appendChild(txt);
 
-                div = document.createElement('div'); div.appendChild(card);
-                body.appendChild(div);
+                body.appendChild(card);
             });
         });
     }
@@ -128,46 +157,38 @@
             interaction_id: document.getElementById('h-id').value,
             advocate_name: document.getElementById('h-adv').value,
             issue_concern: document.getElementById('h-issue').value,
-            page_url: window.location.href,
             evaluation_date: new Date().toISOString()
         };
 
-        var sub = await sb('audit_submissions', 'POST', payload);
-        alert('Saved to Database!');
-        automate();
-        btn.disabled = false; btn.textContent = 'Save & Generate';
-    }
-
-    function automate() {
+        await sb('audit_submissions', 'POST', payload);
+        alert('Audit Saved!');
+        
+        // Automation Logic
         var tasks = [];
-        state.structure.forEach(function(g) {
-            g.items.forEach(function(i) {
-                if (state.answers[i.id]) {
-                    var opt = i.options.find(o => o.id === state.answers[i.id]);
-                    tasks.push({ group: g.title, q: i.question_text, a: opt.label, f: state.feedback[i.id], idx: i.order_index + 1 });
-                }
-            });
-        });
+        state.structure.forEach(g => g.items.forEach(i => {
+            if (state.answers[i.id]) {
+                var opt = i.options.find(o => o.id === state.answers[i.id]);
+                tasks.push({ group: g.title, q: i.question_text, a: opt.label, f: state.feedback[i.id], idx: i.order_index + 1 });
+            }
+        }));
 
         var run = function(idx) {
-            if (idx >= tasks.length) return;
+            if (idx >= tasks.length) { btn.disabled = false; btn.textContent = 'Save & Generate'; return; }
             var t = tasks[idx];
             var h2 = Array.from(document.querySelectorAll('h2')).find(el => el.textContent.includes(t.group));
             var cont = h2 ? h2.closest('.padding-xlarge') || h2.parentElement : document;
             var itemEl = cont.querySelector('[data-idx="' + t.idx + '"]');
-            
             if (itemEl) {
-                var head = itemEl.querySelector('div[style*="cursor: pointer"]') || itemEl.firstElementChild;
-                head.click();
+                itemEl.querySelector('div[style*="cursor: pointer"]').click();
                 setTimeout(function() {
-                    var btn = Array.from(itemEl.querySelectorAll('button')).find(b => b.textContent.trim().toLowerCase() === t.a.toLowerCase());
-                    if (btn) btn.click();
+                    var b = Array.from(itemEl.querySelectorAll('button')).find(el => el.textContent.trim().toLowerCase() === t.a.toLowerCase());
+                    if (b) b.click();
                     setTimeout(function() {
                         var area = itemEl.querySelector('textarea');
                         if (area) { area.value = t.f || ("Automated: " + t.a); area.dispatchEvent(new Event('input', {bubbles:true})); }
                         run(idx + 1);
-                    }, 1500);
-                }, 500);
+                    }, 1000);
+                }, 400);
             } else { run(idx + 1); }
         };
         run(0);
