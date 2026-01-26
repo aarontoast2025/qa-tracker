@@ -6,7 +6,7 @@ Since the target site has strict security policies that block loading external s
 Copy the code below and paste it into the **URL** or **Address** field of a new bookmark.
 
 ```javascript
-javascript:(function(){fetch('https://qa-tracker-toast.vercel.app/qa-form.js?v='+Date.now()).then(r=>r.text()).then(t=>eval(t)).catch(e=>alert('Error loading QA Tool: '+e))})();
+javascript:(function(){const s=document.createElement('script');s.src='https://aarontoast2025.github.io/qa-tracker/public/qa-form.js?v='+(new Date).getTime();document.head.appendChild(s);}());
 ```
 
 **How it works:**

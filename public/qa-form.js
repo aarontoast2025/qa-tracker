@@ -3,8 +3,8 @@
 
     // --- CONFIGURATION ---
     var APP_URL = 'https://qa-tracker-toast.vercel.app';
-    var SUPABASE_URL = 'https://lobhwknisejjvubweall.supabase.co';
-    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvYmh3a25pc2VqanZ1YndlYWxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1Nzk4NjIsImV4cCI6MjA4NDE1NTg2Mn0.2OTSmBD62Fgcecuxps6YoaW9-lPPu1MFA7cWl1g9MUk';
+    var SUPABASE_URL = 'https://gmawsnjwdeefwzradbzn.supabase.co';
+    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtYXdzbmp3ZGVlZnd6cmFkYnpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4MjY2MzEsImV4cCI6MjA4MzQwMjYzMX0.TurtWcLSXyx25IiPFXlly7FPWOn3nCcbzmZGJzI_1nI';
     var FORM_ID = '41e96e83-dad5-4752-be7f-ae0a5dd31406';
 
     var styles = `
