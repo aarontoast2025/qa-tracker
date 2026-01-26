@@ -1,68 +1,23 @@
 (function(){
-  if(document.getElementById('qa-modal-overlay')) return;
+  // Prevent duplicate runs if the bridge is already active
+  if(window.__qaBridgeActive) return;
 
-  // Modal creation and form logic here...
-  const modal = document.createElement('div');
-  modal.id = 'qa-modal-overlay';
-  modal.style.cssText = `
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.8); z-index: 10000; display: flex;
-    align-items: center; justify-content: center; font-family: Arial, sans-serif;
-  `;
+  const APP_URL = 'https://qa-tracker-toast.vercel.app';
+  const FORM_ID = '41e96e83-dad5-4752-be7f-ae0a5dd31406';
 
-  const content = document.createElement('div');
-  content.style.cssText = `
-    background: white; padding: 20px; border-radius: 8px;
-    max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
-  `;
+  // Helper to setup the communication bridge
+  const setupBridge = function(popup) {
+    window.__qaBridgeActive = true;
+    
+    // Clean up previous listener if exists
+    if(window.__qaBridge) window.removeEventListener('message', window.__qaBridge);
 
-  const header = document.createElement('div');
-  header.innerHTML = '<h2 style="margin: 0 0 15px 0; color: #333;">QA Form Automation</h2>';
-
-  const formContainer = document.createElement('div');
-  formContainer.innerHTML = `
-    <div style="margin-bottom: 15px;">
-      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Form ID:</label>
-      <input type="text" id="form-id" placeholder="Enter form ID" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-    </div>
-    <div style="margin-bottom: 15px;">
-      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Target URL:</label>
-      <input type="text" id="target-url" value="${window.location.href}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-    </div>
-  `;
-
-  const footer = document.createElement('div');
-  footer.style.cssText = 'text-align: right; margin-top: 20px;';
-
-  const btnGenerate = document.createElement('button');
-  btnGenerate.textContent = 'Generate & Fill';
-  btnGenerate.style.cssText = 'padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;';
-
-  const btnCancel = document.createElement('button');
-  btnCancel.textContent = 'Cancel';
-  btnCancel.style.cssText = 'padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;';
-
-  const addListener = function(el, event, handler) {
-    el.addEventListener(event, handler);
-  };
-
-  // Open popup window for form
-  const openFormPopup = function(formId, targetUrl) {
-    var w=600,h=800,l=(screen.width-w)/2,t=(screen.height-h)/2;
-    var u='https://qa-tracker-toast.vercel.app/embed/audit/'+formId+'?url='+encodeURIComponent(targetUrl);
-    var popup=window.open(u,'QAForm','width='+w+',height='+h+',top='+t+',left='+l+',scrollbars=yes');
-    if(!popup || popup.closed || typeof popup.closed=='undefined'){
-      alert('Popup Blocked! Please allow popups for this site.');
-      return null;
-    }
-
-    // Set up message listener for automation
-    window.removeEventListener('message', window.__qaBridge);
     window.__qaBridge = function(e){
-      if(e.origin!=='https://qa-tracker-toast.vercel.app') return;
+      if(e.origin !== APP_URL) return;
 
-      if(e.data.type==='REQUEST_HOST_DATA'){
-        var getVal = function(s){ var el=document.querySelector(s); return el?el.textContent.trim():"" };
+      // 1. Host Page Data Request
+      if(e.data.type === 'REQUEST_HOST_DATA'){
+        var getVal = function(s){ var el=document.querySelector(s); return el?el.textContent.trim():'' };
         var h4s = Array.from(document.querySelectorAll('h4'));
         var findH4Val = function(txt){
           var h4 = h4s.find(function(el){return el.textContent.trim().includes(txt)});
@@ -85,36 +40,37 @@
         popup.postMessage({ type: 'HOST_PAGE_DATA', data: data }, '*');
       }
 
-      if(e.data.type==='AUTOMATE_PAGE'){
-        var items=e.data.data;
+      // 2. Automation Request
+      if(e.data.type === 'AUTOMATE_PAGE'){
+        var items = e.data.data;
         var processItem = function(index) {
           if (index >= items.length) {
             popup.postMessage({ type: 'AUTOMATION_COMPLETE' }, '*');
             return;
           }
           var item = items[index];
-          var h2s=Array.from(document.querySelectorAll('h2'));
-          var h2=h2s.find(function(el){return el.textContent.trim().toLowerCase().includes(item.groupName.toLowerCase())});
-          var container=h2?h2.closest('.padding-xlarge')||h2.parentElement:document;
-          var itemEl=container.querySelector('[data-idx="'+item.index+'"]');
+          var h2s = Array.from(document.querySelectorAll('h2'));
+          var h2 = h2s.find(function(el){return el.textContent.trim().toLowerCase().includes(item.groupName.toLowerCase())});
+          var container = h2 ? h2.closest('.padding-xlarge') || h2.parentElement : document;
+          var itemEl = container.querySelector('[data-idx="' + item.index + '"]');
 
           if(!itemEl){
-            var labels=Array.from(container.querySelectorAll('label'));
-            var label=labels.find(function(l){return l.textContent.toLowerCase().includes(item.fullQuestion.toLowerCase())});
-            itemEl=label?label.closest('div'):null;
+            var labels = Array.from(container.querySelectorAll('label'));
+            var label = labels.find(function(l){return l.textContent.toLowerCase().includes(item.fullQuestion.toLowerCase())});
+            itemEl = label ? label.closest('div') : null;
           }
 
           if(itemEl){
-            // First, expand the item to make textarea visible
             var header = itemEl.querySelector('div[style*="cursor: pointer"]') || itemEl.firstElementChild;
             if(header) {
-              header.click();
+              header.click(); // Expand section
               setTimeout(function(){
-                var buttons=Array.from(itemEl.querySelectorAll('button'));
-                var targetBtn=buttons.find(function(b){return b.textContent.trim().toLowerCase()===item.answer.toLowerCase()});
+                var buttons = Array.from(itemEl.querySelectorAll('button'));
+                var targetBtn = buttons.find(function(b){return b.textContent.trim().toLowerCase() === item.answer.toLowerCase()});
                 if(targetBtn){
-                  targetBtn.click();
+                  targetBtn.click(); // Select Answer
                   setTimeout(function(){
+                    // Select Tags
                     if(item.tags && item.tags.length > 0){
                       var allBtns = Array.from(itemEl.querySelectorAll('button'));
                       item.tags.forEach(function(tagLabel){
@@ -124,8 +80,9 @@
                         if(tBtn) tBtn.click();
                       });
                     }
+                    // Enter Feedback
                     setTimeout(function(){
-                      var textarea=itemEl.querySelector('textarea');
+                      var textarea = itemEl.querySelector('textarea');
                       if(textarea){
                         var finalText = item.feedback || ("Automated: " + item.answer);
                         try {
@@ -136,17 +93,15 @@
                         } catch(err) {
                           textarea.value = finalText;
                         }
-                        textarea.dispatchEvent(new Event('input',{bubbles:true}));
-                        textarea.dispatchEvent(new Event('change',{bubbles:true}));
+                        textarea.dispatchEvent(new Event('input', {bubbles:true}));
+                        textarea.dispatchEvent(new Event('change', {bubbles:true}));
                       }
                       processItem(index + 1);
                     }, 500);
                   }, 2500);
                 } else { processItem(index + 1); }
-              }, 500); // Wait for expansion
-            } else {
-              processItem(index + 1);
-            }
+              }, 500);
+            } else { processItem(index + 1); }
           } else { processItem(index + 1); }
         };
         processItem(0);
@@ -155,34 +110,44 @@
     window.addEventListener('message', window.__qaBridge);
   };
 
-  addListener(btnGenerate, "click", function() {
-    var formId = document.getElementById('form-id').value.trim();
-    var targetUrl = document.getElementById('target-url').value.trim();
-
-    if(!formId) {
-      alert('Please enter a Form ID');
-      return;
+  // Function to actually open the window
+  const launch = function() {
+    var w=650,h=850,l=(screen.width-w)/2,t=(screen.height-h)/2;
+    var u = APP_URL + '/embed/audit/' + FORM_ID + '?url=' + encodeURIComponent(window.location.href);
+    var popup = window.open(u, 'QAForm', 'width='+w+',height='+h+',top='+t+',left='+l+',scrollbars=yes');
+    
+    if(popup && !popup.closed && typeof popup.closed !== 'undefined') {
+      setupBridge(popup);
+      return true;
     }
+    return false;
+  };
 
-    modal.remove();
-    openFormPopup(formId, targetUrl);
-  });
+  // Attempt immediate launch
+  const success = launch();
 
-  addListener(btnCancel, "click", function() {
-    modal.remove();
-  });
+  // If blocked, show a discreet launch button
+  if(!success) {
+    if(document.getElementById('qa-blocked-btn')) return; // Already showing
+    
+    const btn = document.createElement('div');
+    btn.id = 'qa-blocked-btn';
+    btn.textContent = '🚀 Launch QA Form';
+    btn.style.cssText = '
+      position: fixed; bottom: 20px; right: 20px; 
+      background: #2563eb; color: white; padding: 12px 20px; 
+      border-radius: 50px; cursor: pointer; z-index: 10001; 
+      font-family: system-ui, sans-serif; font-weight: 600; 
+      box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+      transition: transform 0.2s;
+    ';
+    btn.onmouseover = function(){ btn.style.transform = 'scale(1.05)'; };
+    btn.onmouseout = function(){ btn.style.transform = 'scale(1)'; };
+    btn.onclick = function() {
+      launch();
+      btn.remove();
+    };
+    document.body.appendChild(btn);
+  }
 
-  footer.appendChild(btnCancel);
-  footer.appendChild(btnGenerate);
-
-  content.appendChild(header);
-  content.appendChild(formContainer);
-  content.appendChild(footer);
-  modal.appendChild(content);
-  document.body.appendChild(modal);
-
-  // Focus on form ID input
-  setTimeout(function() {
-    document.getElementById('form-id').focus();
-  }, 100);
 })();
