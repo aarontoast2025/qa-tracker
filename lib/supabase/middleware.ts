@@ -48,30 +48,34 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Check if user is suspended
-  if (user) {
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('is_suspended')
-      .eq('id', user.id)
-      .single();
+  // Check if user is suspended (only for authenticated users on protected routes)
+  if (user && !request.nextUrl.pathname.startsWith("/auth")) {
+    try {
+      const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('is_suspended')
+        .eq('id', user.id)
+        .single();
 
-    if (profile?.is_suspended) {
-      // User is suspended, log them out and redirect to login
-      await supabase.auth.signOut();
-      const url = request.nextUrl.clone();
-      url.pathname = "/auth/login";
-      url.searchParams.set("message", "Your account has been suspended. Please contact an administrator.");
-      return NextResponse.redirect(url);
+      // If there's an error or no profile, skip suspension check
+      if (!error && profile?.is_suspended) {
+        // User is suspended, log them out and redirect to login
+        await supabase.auth.signOut();
+        const url = request.nextUrl.clone();
+        url.pathname = "/auth/login";
+        url.searchParams.set("message", "Your account has been suspended. Please contact an administrator.");
+        return NextResponse.redirect(url);
+      }
+    } catch (error) {
+      // If database query fails, log error but don't block the request
+      console.error('Middleware suspension check failed:', error);
     }
 
     // Check if user must change password (e.g. invited users)
     if (user.user_metadata?.must_change_password) {
       const isUpdatePasswordPage = request.nextUrl.pathname === "/auth/update-password";
-      const isSignOut = request.nextUrl.pathname.startsWith("/auth/sign-out"); // Assuming you might have a sign-out route or using client-side signOut
+      const isSignOut = request.nextUrl.pathname.startsWith("/auth/sign-out");
       
-      // Allow access to update-password page and static assets/api (handled by matcher config usually, but good to be safe)
-      // We also verify it's not an auth callback/hook which might be needed.
       if (!isUpdatePasswordPage && !isSignOut && !request.nextUrl.pathname.startsWith('/auth/callback')) {
          const url = request.nextUrl.clone();
          url.pathname = "/auth/update-password";
