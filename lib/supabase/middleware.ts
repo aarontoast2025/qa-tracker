@@ -84,14 +84,19 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Allow access to auth routes without authentication
+  // Allow access to auth routes, embed APIs, and public scripts without authentication
   const isAuthRoute = request.nextUrl.pathname.startsWith("/auth");
+  const isPublicApi = request.nextUrl.pathname.startsWith("/api/embed") || 
+                     request.nextUrl.pathname.startsWith("/api/summarize");
+  const isPublicFile = request.nextUrl.pathname === "/qa-form.js";
   
   if (
     request.nextUrl.pathname !== "/" &&
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
-    !isAuthRoute
+    !isAuthRoute &&
+    !isPublicApi &&
+    !isPublicFile
   ) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
