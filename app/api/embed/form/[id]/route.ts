@@ -63,7 +63,7 @@ async function getPublicFormStructure(formId: string) {
         ...item,
         // Map new fields to old names expected by bookmarklet
         question_text: item.label,
-        item_type: item.type === 'dropdown' ? 'dropdown_custom' : item.type,
+        item_type: item.type,
         options: (options || [])
           ?.filter(opt => opt.item_id === item.id)
           .map(opt => ({

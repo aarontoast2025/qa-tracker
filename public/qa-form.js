@@ -21,10 +21,7 @@
     var existingRecordId = null;
 
     // Colors
-    var C_GREEN_BG = "#dcfce7", C_GREEN_TXT = "#14532d", C_GREEN_BORDER = "#15803d";
-    var C_RED_BG = "#fee2e2", C_RED_TXT = "#7f1d1d", C_RED_BORDER = "#b91c1c";
-    var C_GRAY_BG = "#f3f4f6", C_GRAY_TXT = "#374151", C_GRAY_BORDER = "#9ca3af";
-    var C_HEADER_GREEN = "#f0fdf4", C_HEADER_RED = "#fef2f2", C_HEADER_GRAY = "#e0e7ff";
+    // Palette definitions are handled inside getColors
 
     // Styles
     var sOverlay = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.2);display:flex;align-items:flex-start;justify-content:center;z-index:99999;font-family:system-ui,sans-serif;padding-top:20px;overflow-y:auto;pointer-events:none";
@@ -63,29 +60,22 @@
     };
 
     var getColors = function(theme) {
-        var hex = "#9ca3af"; // Default gray
-        if(theme === 'success' || theme === 'green') hex = '#22c55e';
-        else if(theme === 'destructive' || theme === 'red') hex = '#ef4444';
-        else if(theme === 'neutral' || theme === 'blue') hex = '#3b82f6';
-        else if(theme.indexOf('#') === 0) hex = theme;
-
-        // Helper to lighten/darken hex colors
-        var adjust = function(hexStr, amt) {
-            hexStr = hexStr.replace('#', '');
-            var num = parseInt(hexStr, 16);
-            var r = (num >> 16) + amt;
-            var g = ((num >> 8) & 0x00FF) + amt;
-            var b = (num & 0x0000FF) + amt;
-            var clamp = function(x){ return Math.min(255, Math.max(0, x)); };
-            return "#" + (0x1000000 + clamp(r) * 0x10000 + clamp(g) * 0x100 + clamp(b)).toString(16).slice(1);
+        theme = (theme || 'gray').toLowerCase();
+        
+        var palettes = {
+            green: { bg: "#d1fae5", border: "#10b981", txt: "#064e3b", header: "#ecfdf5" }, 
+            red: { bg: "#fee2e2", border: "#ef4444", txt: "#7f1d1d", header: "#fef2f2" },
+            yellow: { bg: "#fef3c7", border: "#f59e0b", txt: "#78350f", header: "#fffbeb" },
+            gray: { bg: "#f3f4f6", border: "#9ca3af", txt: "#1f2937", header: "#f9fafb" },
+            blue: { bg: "#dbeafe", border: "#3b82f6", txt: "#1e3a8a", header: "#eff6ff" }
         };
 
-        return {
-            bg: adjust(hex, 180),    // Very light
-            txt: adjust(hex, -120),  // Very dark
-            border: hex,             // Base color
-            header: adjust(hex, 200) // Extremely light for header
-        };
+        if(theme === 'success') theme = 'green';
+        if(theme === 'destructive') theme = 'red';
+        if(theme === 'warning') theme = 'yellow';
+        if(theme === 'neutral') theme = 'gray';
+
+        return palettes[theme] || palettes.gray;
     };
 
     var updateText = function(key) {
@@ -267,7 +257,7 @@
 
     var isDragging = false, startX = 0, startY = 0, initialX = 0, initialY = 0;
     var header = createElement("div", sHeader);
-    header.innerHTML = "<span>QA Form Tool</span><span style='font-size:12px;color:#999'>v3.2</span>";
+    header.innerHTML = "<span>QA Form Tool</span>";
 
     addListener(header, "mousedown", function(e){
         if(e.target === header || e.target.parentNode === header) {
@@ -365,7 +355,7 @@
             return {
                 item_id: s.id, // Using the stored ID directly
                 answer_id: s.sel,
-                answer_text: s.itemType === 'dropdown_custom' ? s.options[s.selIndex].label : (s.sel === s.options.filter(function(o){ return o.is_correct; })[0].id ? 'Yes' : 'No'),
+                answer_text: (s.itemType === 'dropdown_custom' || s.itemType === 'dropdown') ? s.options[s.selIndex].label : (s.sel === s.options.filter(function(o){ return o.is_correct; })[0].id ? 'Yes' : 'No'),
                 feedback_text: s.text,
                 selected_tags: s.selectedTags.map(function(t){ return t.tag_label; })
             };
@@ -539,7 +529,7 @@
                     var control = question.querySelector('[data-testid="SegmentedControl"]');
                     if(control) {
                         var buttons = Array.from(control.querySelectorAll('button'));
-                        if(s.itemType === 'dropdown_custom') {
+                        if(s.itemType === 'dropdown_custom' || s.itemType === 'dropdown') {
                             if(buttons[s.selIndex]) buttons[s.selIndex].click();
                         } else {
                             var correctOpt = s.options.filter(function(o){ return o.id === s.sel; })[0];
@@ -693,14 +683,9 @@
                         var tagContainer = createElement("div", sTagContainer);
 
                         var updateHeaderBg = function() {
-                            var hasContent = state[key].text.trim().length > 0 || state[key].selectedTags.length > 0;
-                            if(hasContent) {
-                                var theme = getTheme(item, state[key].sel);
-                                var cols = getColors(theme);
-                                itemHeader.style.background = cols.header;
-                            } else {
-                                itemHeader.style.background = expanded ? "#e8e8e8" : "#f5f5f5";
-                            }
+                            var theme = getTheme(item, state[key].sel);
+                            var cols = getColors(theme);
+                            itemHeader.style.background = cols.header;
                         };
 
                         var renderTags = function() {
@@ -737,7 +722,7 @@
                             });
                         };
 
-                        if(item.itemType === 'dropdown_custom') {
+                        if(item.item_type === 'dropdown_custom' || item.item_type === 'dropdown') {
                             var select = createElement("select", sSelect);
                             item.options.forEach(function(opt, idx){
                                 var o = createElement("option");

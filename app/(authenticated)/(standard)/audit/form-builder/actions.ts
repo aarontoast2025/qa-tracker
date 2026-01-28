@@ -249,7 +249,7 @@ export async function updateItem(id: string, formId: string, updates: any) {
     .eq('id', id);
 
   if (error) throw error;
-  // Silent update - no revalidatePath here
+  revalidatePath(`/audit/form-builder/${formId}`);
 }
 
 export async function deleteItem(id: string, formId: string) {
@@ -296,7 +296,7 @@ export async function addOption(itemId: string, formId: string) {
 
     const nextOrder = (options?.[0]?.order_index ?? -1) + 1;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
         .from('form_item_options')
         .insert({
             item_id: itemId,
@@ -304,10 +304,13 @@ export async function addOption(itemId: string, formId: string) {
             value: "",
             color: "gray",
             order_index: nextOrder
-        });
+        })
+        .select()
+        .single();
 
     if (error) throw error;
-    revalidatePath(`/audit/form-builder/${formId}`);
+    return data;
+    // Silent add - do not revalidatePath here to prevent state wipe
 }
 
 export async function updateOption(id: string, formId: string, updates: any) {
@@ -329,7 +332,7 @@ export async function updateOption(id: string, formId: string, updates: any) {
         .eq('id', id);
 
     if (error) throw error;
-    // Silent update - no revalidatePath here
+    revalidatePath(`/audit/form-builder/${formId}`);
 }
 
 export async function deleteOption(id: string, formId: string) {
@@ -343,7 +346,7 @@ export async function deleteOption(id: string, formId: string) {
         .eq('id', id);
 
     if (error) throw error;
-    revalidatePath(`/audit/form-builder/${formId}`);
+    // Silent delete
 }
 
 export async function updateOptionOrder(formId: string, optionUpdates: any[]) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import {
     SelectTrigger, 
     SelectValue 
 } from "@/components/ui/select";
-import { Trash2, GripVertical, Plus, X, Star, StarOff, AlertCircle, Check } from "lucide-react";
+import { Trash2, GripVertical, Plus, X, Star, StarOff, AlertCircle, Check, Save, Info } from "lucide-react";
 import { 
     updateItem, 
     deleteItem, 
@@ -34,12 +34,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-interface ItemEditorProps {
-  item: any;
-  formId: string;
-  dragHandleProps?: any;
-}
-
 const COLORS = [
     { label: "Green", value: "green", class: "bg-green-500" },
     { label: "Red", value: "red", class: "bg-red-500" },
@@ -47,54 +41,17 @@ const COLORS = [
     { label: "Gray", value: "gray", class: "bg-gray-500" },
 ];
 
-// Helper for silent background updates to avoid Next.js revalidation/Rendering loop
-async function silentUpdate(entity: 'item' | 'option', id: string, updates: any) {
-    try {
-        await fetch('/api/audit/form-builder/update', {
-            method: 'POST',
-            body: JSON.stringify({ entity, id, updates }),
-            headers: { 'Content-Type': 'application/json' }
-        });
-    } catch (e) {
-        console.error("Silent update failed:", e);
-    }
-}
-
-// Sub-component for individual options
-function OptionItem({ opt, provided, snapshot, onUpdate, onDelete, isDefault, isCorrect }: any) {
-    const [localLabel, setLocalLabel] = useState(opt.label || "");
-    const isFocused = useRef(false);
-
-    useEffect(() => {
-        if (!isFocused.current) {
-            setLocalLabel(opt.label || "");
-        }
-    }, [opt.label]);
-
-    // Debounce save for label
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (localLabel !== opt.label && isFocused.current) {
-                // Use silent background update for typing
-                silentUpdate('option', opt.id, { 
-                    label: localLabel, 
-                    value: localLabel.toLowerCase().replace(/\s+/g, '_') 
-                });
-            }
-        }, 1000);
-        return () => clearTimeout(timer);
-    }, [localLabel, opt.id, opt.label]);
-
+function OptionItem({ opt, provided, snapshot, onUpdate, onDelete }: any) {
     return (
         <div 
             ref={provided.innerRef} 
             {...provided.draggableProps} 
             className={cn(
-                "flex gap-2 items-center bg-white p-2 rounded border group/opt",
+                "flex gap-2 items-center bg-white p-2 rounded border group/opt relative",
                 snapshot.isDragging && "shadow-lg border-primary/50"
             )}
         >
-            <div {...provided.dragHandleProps} className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground">
+            <div {...provided.dragHandleProps} className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground shrink-0">
                 <GripVertical className="h-3 w-3" />
             </div>
 
@@ -104,10 +61,8 @@ function OptionItem({ opt, provided, snapshot, onUpdate, onDelete, isDefault, is
             )} />
             
             <Input 
-                value={localLabel} 
-                onChange={(e) => setLocalLabel(e.target.value)}
-                onFocus={() => { isFocused.current = true; }}
-                onBlur={() => { isFocused.current = false; }}
+                value={opt.label} 
+                onChange={(e) => onUpdate(opt.id, { label: e.target.value })}
                 className="h-8 text-sm flex-1 border-transparent focus:border-input bg-transparent px-1"
                 placeholder="Label"
             />
@@ -131,12 +86,12 @@ function OptionItem({ opt, provided, snapshot, onUpdate, onDelete, isDefault, is
             <Button 
                 variant="ghost" 
                 size="icon" 
+                type="button"
                 className={cn(
                     "h-5 w-5 rounded-full transition-all shrink-0",
-                    isCorrect ? "bg-green-50 text-green-600 border border-green-200" : "text-muted-foreground/40 hover:text-green-500"
+                    opt.is_correct ? "bg-green-50 text-green-600 border border-green-200" : "text-muted-foreground/40 hover:text-green-500"
                 )}
-                onClick={() => onUpdate(opt.id, { is_correct: !isCorrect })}
-                title={isCorrect ? "Correct Answer" : "Mark as Correct"}
+                onClick={() => onUpdate(opt.id, { is_correct: !opt.is_correct })}
             >
                 <Check className="h-3 w-3" />
             </Button>
@@ -144,134 +99,183 @@ function OptionItem({ opt, provided, snapshot, onUpdate, onDelete, isDefault, is
             <Button 
                 variant="ghost" 
                 size="icon" 
+                type="button"
                 className={cn(
                     "h-7 w-7 transition-colors",
-                    isDefault ? "text-yellow-500 hover:text-yellow-600" : "text-muted-foreground/40 hover:text-yellow-500"
+                    opt.is_default ? "text-yellow-500 hover:text-yellow-600" : "text-muted-foreground/40 hover:text-yellow-500"
                 )}
-                onClick={() => onUpdate(opt.id, { is_default: !isDefault })}
-                title={isDefault ? "Default Answer" : "Set as Default"}
+                onClick={() => onUpdate(opt.id, { is_default: !opt.is_default })}
             >
-                {isDefault ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
+                {opt.is_default ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
             </Button>
 
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => onDelete(opt.id)}>
+            <Button variant="ghost" size="icon" type="button" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => onDelete(opt.id)}>
                 <X className="h-3 w-3" />
             </Button>
         </div>
     );
 }
 
-export function ItemEditor({ item, formId, dragHandleProps }: ItemEditorProps) {
+export function ItemEditor({ item, formId, dragHandleProps }: any) {
   const [label, setLabel] = useState(item.label || "");
   const [shortName, setShortName] = useState(item.short_name || "");
   const [type, setType] = useState(item.type);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  
-  const isLabelFocused = useRef(false);
-  const isShortNameFocused = useRef(false);
+  const [isSavingItem, setIsSavingItem] = useState(false);
+  const [isSavingOptions, setIsSavingOptions] = useState(false);
 
-  // Master local state for options
-  const [localOptions, setLocalOptions] = useState<any[]>(item.form_item_options || []);
+  // Local state for all options including newly added unsaved ones
+  const [localOptions, setLocalOptions] = useState<any[]>([]);
 
-  // Sync with server props ONLY when they change from outside
+  // Initialize and Sync local state
   useEffect(() => {
-    setLocalOptions(item.form_item_options || []);
-  }, [item.form_item_options]);
+    // 1. Always sync if local state is empty (initial load)
+    const isInitialLoad = localOptions.length === 0 && (item.form_item_options || []).length > 0;
+    
+    // 2. Sync item fields if no local changes
+    if (isInitialLoad || !hasItemChanges) {
+        setLabel(item.label || "");
+        setShortName(item.short_name || "");
+        setType(item.type);
+    }
+    
+    // 3. Sync options if no local changes OR it's the first time we're getting them
+    if (isInitialLoad || !hasOptionChanges) {
+        setLocalOptions(item.form_item_options || []);
+    }
+  }, [item.id, item.label, item.short_name, item.type, item.form_item_options]);
 
-  useEffect(() => {
-    if (!isLabelFocused.current) setLabel(item.label || "");
-  }, [item.label]);
+  // Precise change detection
+  const hasItemChanges = label !== (item.label || "") || 
+                         shortName !== (item.short_name || "") || 
+                         type !== item.type;
 
-  useEffect(() => {
-    if (!isShortNameFocused.current) setShortName(item.short_name || "");
-  }, [item.short_name]);
+  const hasOptionChanges = localOptions.length > 0 && 
+                         JSON.stringify(localOptions.map(o => ({ 
+                             id: o.id, label: o.label, color: o.color, is_default: o.is_default, is_correct: o.is_correct 
+                         }))) !== JSON.stringify((item.form_item_options || []).map((o: any) => ({
+                             id: o.id, label: o.label, color: o.color, is_default: o.is_default, is_correct: o.is_correct
+                         })));
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const needsLabelUpdate = label !== item.label && isLabelFocused.current;
-      const needsShortUpdate = shortName !== item.short_name && isShortNameFocused.current;
-      
-      if (needsLabelUpdate || needsShortUpdate) {
-        silentUpdate('item', item.id, { label, short_name: shortName });
-      }
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [label, shortName, item.id, item.label, item.short_name]);
-
-  const handleDelete = async () => {
+  const handleSaveItem = async () => {
+    setIsSavingItem(true);
     try {
-        await deleteItem(item.id, formId);
-        toast.success("Item deleted");
+        await updateItem(item.id, formId, { label, short_name: shortName, type });
+        toast.success("Question updated");
     } catch (error) {
-        toast.error("Failed to delete item");
+        toast.error("Failed to save question");
     } finally {
-        setShowDeleteModal(false);
+        setIsSavingItem(false);
     }
   };
 
-  const handleAddOption = async () => {
-    const tempId = crypto.randomUUID();
-    const newOpt = { id: tempId, label: "", value: "", color: "gray", is_default: false, is_correct: false, item_id: item.id };
+  const handleUpdateOptionDraft = (optionId: string, updates: any) => {
+    setLocalOptions(prev => prev.map(o => {
+        if (o.id === optionId) {
+            return { ...o, ...updates };
+        }
+        if (updates.is_default === true) return { ...o, is_default: false };
+        return o;
+    }));
+  };
+
+  const handleSaveOptions = async () => {
+    setIsSavingOptions(true);
+    try {
+        await Promise.all(localOptions.map(opt => 
+            updateOption(opt.id, formId, {
+                label: opt.label,
+                color: opt.color,
+                is_default: opt.is_default,
+                is_correct: opt.is_correct,
+                value: opt.label ? opt.label.toLowerCase().replace(/\s+/g, '_') : ""
+            })
+        ));
+        toast.success("Options saved successfully");
+        // Force refresh local data to match new server state
+        setLocalOptions(localOptions); 
+    } catch (error) {
+        toast.error("Failed to save some options");
+    } finally {
+        setIsSavingOptions(false);
+    }
+  };
+
+  const handleAddOptionLocal = async () => {
+    const tempId = `temp-${crypto.randomUUID()}`;
+    const newOpt = {
+        id: tempId,
+        label: "",
+        color: "gray",
+        is_default: false,
+        is_correct: false,
+        item_id: item.id,
+        order_index: localOptions.length
+    };
+    
     setLocalOptions([...localOptions, newOpt]);
     
     try {
-        await addOption(item.id, formId);
+        const realOpt = await addOption(item.id, formId);
+        if (realOpt) {
+            setLocalOptions(prev => prev.map(o => o.id === tempId ? { ...o, id: realOpt.id } : o));
+        }
     } catch (error) {
-        setLocalOptions(localOptions);
-        toast.error("Failed to add option");
+        toast.error("Failed to add option to database");
+        setLocalOptions(prev => prev.filter(o => o.id !== tempId));
     }
   };
 
-  const handleUpdateOptionLocal = useCallback(async (optionId: string, updates: any) => {
-    // 1. Instant UI update
-    setLocalOptions(prev => {
-        let next = prev.map(o => o.id === optionId ? { ...o, ...updates } : o);
-        if (updates.is_default === true) {
-            next = next.map(o => o.id === optionId ? o : { ...o, is_default: false });
-        }
-        return next;
-    });
+  const onDeleteOption = async (id: string) => {
+    // 1. Remove from local state immediately for instant UI feedback
+    const originalOptions = [...localOptions];
+    setLocalOptions(prev => prev.filter(o => o.id !== id));
 
-    // 2. Background update
-    await silentUpdate('option', optionId, updates);
-  }, []);
+    if (id.startsWith('temp-')) return;
 
-  const handleDeleteOptionLocal = async (optionId: string) => {
-    const original = [...localOptions];
-    setLocalOptions(localOptions.filter(o => o.id !== optionId));
+    // 2. Perform silent deletion in DB
     try {
-        await deleteOption(optionId, formId);
+        await deleteOption(id, formId);
     } catch (error) {
-        setLocalOptions(original);
-        toast.error("Failed to delete option");
+        toast.error("Failed to delete option from database");
+        // Rollback on error
+        setLocalOptions(originalOptions);
     }
   };
 
   const onDragEndOptions = async (result: DropResult) => {
     if (!result.destination) return;
-    
     const newOptions = Array.from(localOptions);
     const [removed] = newOptions.splice(result.source.index, 1);
     newOptions.splice(result.destination.index, 0, removed);
-    
     setLocalOptions(newOptions);
-    try {
-        await updateOptionOrder(formId, newOptions);
-    } catch (error) {
-        setLocalOptions(localOptions);
-        toast.error("Failed to save option order");
+    
+    // Only update order if none are temp items
+    if (!newOptions.some(o => o.id.toString().startsWith('temp-'))) {
+        try {
+            await updateOptionOrder(formId, newOptions);
+        } catch (e) {
+            toast.error("Failed to update option order");
+        }
     }
   };
 
   return (
     <>
       <div className={cn(
-          "bg-white border rounded-md shadow-sm transition-all group/item overflow-hidden",
-          isExpanded ? "ring-2 ring-primary/20 border-primary/30" : "hover:border-primary/40"
+          "bg-white border rounded-md shadow-sm transition-all group/item overflow-hidden relative",
+          isExpanded ? "ring-2 ring-primary/20 border-primary/30" : "hover:border-primary/40",
+          (hasItemChanges || hasOptionChanges) && "border-yellow-400 bg-yellow-50/5"
       )}>
+        {(hasItemChanges || hasOptionChanges) && (
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-yellow-400 text-white text-[10px] font-bold rounded-b uppercase tracking-widest z-10 shadow-sm">
+                Unsaved Changes
+            </div>
+        )}
+
         <div className="flex items-start gap-3 p-4">
-          <div {...dragHandleProps} className="mt-2 cursor-grab text-muted-foreground/30 hover:text-muted-foreground transition-colors shrink-0">
+          <div {...dragHandleProps} className="mt-2 cursor-grab text-muted-foreground/30 hover:text-muted-foreground shrink-0">
               <GripVertical className="h-4 w-4" />
           </div>
           
@@ -279,32 +283,16 @@ export function ItemEditor({ item, formId, dragHandleProps }: ItemEditorProps) {
               <div className="flex flex-col md:flex-row gap-4">
                   <div className="flex-1 space-y-1.5">
                       <Label className="text-[10px] uppercase font-bold text-muted-foreground">Full Item Name</Label>
-                      <Input 
-                          value={label}
-                          onChange={(e) => setLabel(e.target.value)}
-                          onFocus={() => { isLabelFocused.current = true; setIsExpanded(true); }}
-                          onBlur={() => { isLabelFocused.current = false; }}
-                          className="font-medium h-9"
-                          placeholder="e.g. 1. Did the specialist greeted the customer?"
-                      />
+                      <Input value={label} onChange={(e) => setLabel(e.target.value)} onFocus={() => setIsExpanded(true)} className="font-medium h-9" />
                   </div>
                   <div className="w-full md:w-48 space-y-1.5">
-                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Short Item Name</Label>
-                      <Input 
-                          value={shortName}
-                          onChange={(e) => setShortName(e.target.value)}
-                          onFocus={() => { isShortNameFocused.current = true; setIsExpanded(true); }}
-                          onBlur={() => { isShortNameFocused.current = false; }}
-                          className="font-medium h-9"
-                          placeholder="e.g. 1. Customer Greeting"
-                      />
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Short Name</Label>
+                      <Input value={shortName} onChange={(e) => setShortName(e.target.value)} onFocus={() => setIsExpanded(true)} className="font-medium h-9" />
                   </div>
                   <div className="w-full md:w-40 space-y-1.5">
                       <Label className="text-[10px] uppercase font-bold text-muted-foreground">Type</Label>
-                      <Select value={type} onValueChange={(val) => { setType(val); updateItem(item.id, formId, { type: val }); }}>
-                          <SelectTrigger className="h-9 text-xs">
-                              <SelectValue />
-                          </SelectTrigger>
+                      <Select value={type} onValueChange={setType}>
+                          <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                           <SelectContent>
                               <SelectItem value="toggle">Toggle</SelectItem>
                               <SelectItem value="dropdown">Dropdown</SelectItem>
@@ -314,63 +302,65 @@ export function ItemEditor({ item, formId, dragHandleProps }: ItemEditorProps) {
               </div>
 
               {isExpanded && (
-                  <div className="space-y-6 pt-4 border-t animate-in slide-in-from-top-2 fade-in duration-200">
-                      <div className="space-y-3 bg-muted/30 p-4 rounded-lg">
-                          <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-2 block">Response Options</Label>
+                  <div className="space-y-4 pt-4 border-t">
+                      <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground block">Response Options</Label>
 
                           <DragDropContext onDragEnd={onDragEndOptions}>
                               <Droppable droppableId={`options-${item.id}`}>
                                   {(provided) => (
                                       <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
-                                          {localOptions.map((opt: any, idx: number) => (
+                                          {localOptions.map((opt, idx) => (
                                               <Draggable key={opt.id} draggableId={opt.id} index={idx}>
-                                                  {(provided, snapshot) => (
+                                                  {(p, s) => (
                                                       <OptionItem 
-                                                        opt={opt}
-                                                        formId={formId}
-                                                        provided={provided}
-                                                        snapshot={snapshot}
-                                                        onUpdate={handleUpdateOptionLocal}
-                                                        onDelete={handleDeleteOptionLocal}
-                                                        isDefault={opt.is_default}
-                                                        isCorrect={opt.is_correct}
+                                                        opt={opt} 
+                                                        provided={p} 
+                                                        snapshot={s} 
+                                                        onUpdate={handleUpdateOptionDraft} 
+                                                        onDelete={onDeleteOption} 
                                                       />
                                                   )}
                                               </Draggable>
                                           ))}
                                           {provided.placeholder}
-                                          
-                                          <div 
-                                              onClick={handleAddOption}
-                                              className="flex items-center justify-center p-2 border-2 border-dashed rounded border-muted-foreground/10 hover:border-primary/20 hover:bg-primary/5 cursor-pointer transition-all text-muted-foreground/50 hover:text-primary"
-                                          >
-                                              <Plus className="h-4 w-4 mr-1" />
-                                              <span className="text-xs font-medium">Add Option</span>
-                                          </div>
                                       </div>
                                   )}
                               </Droppable>
                           </DragDropContext>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-muted/50 mt-4">
+                                <Button variant="outline" size="sm" type="button" onClick={handleAddOptionLocal} className="h-8 text-xs gap-2">
+                                    <Plus className="h-3 w-3" /> Add Option
+                                </Button>
+
+                                {hasOptionChanges && (
+                                    <div className="flex items-center gap-3 animate-in fade-in slide-in-from-right-2">
+                                        <span className="text-[10px] font-medium text-yellow-600 flex items-center gap-1">
+                                            <Info className="h-3 w-3" /> Please save options to update the changes
+                                        </span>
+                                        <Button size="sm" type="button" onClick={handleSaveOptions} disabled={isSavingOptions} className="h-8 bg-yellow-500 hover:bg-yellow-600 text-white gap-2 shadow-sm">
+                                            <Save className={cn("h-3.5 w-3.5", isSavingOptions && "animate-spin")} />
+                                            Save Options
+                                        </Button>
+                                    </div>
+                                )}
+                          </div>
                       </div>
                   </div>
               )}
           </div>
 
-          <div className="flex flex-col gap-2 opacity-0 group-hover/item:opacity-100 transition-opacity">
-              <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className={cn("h-8 w-8", isExpanded ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary")}
-                  onClick={() => setIsExpanded(!isExpanded)}
-              >
+          <div className="flex flex-col gap-2">
+              {hasItemChanges && (
+                  <Button variant="ghost" size="icon" type="button" onClick={handleSaveItem} disabled={isSavingItem} className="h-8 w-8 text-yellow-600 bg-yellow-50 hover:bg-yellow-100 ring-1 ring-yellow-200">
+                      <Save className={cn("h-4 w-4", isSavingItem && "animate-pulse")} />
+                  </Button>
+              )}
+              <Button variant="ghost" size="icon" type="button" onClick={() => setIsExpanded(!isExpanded)} className={cn("h-8 w-8", isExpanded ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary")}>
                   <Plus className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-45")} />
               </Button>
-              <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  onClick={() => setShowDeleteModal(true)}
-              >
+              <Button variant="ghost" size="icon" type="button" onClick={() => setShowDeleteModal(true)} className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover/item:opacity-100 transition-opacity">
                   <Trash2 className="h-4 w-4" />
               </Button>
           </div>
@@ -389,9 +379,8 @@ export function ItemEditor({ item, formId, dragHandleProps }: ItemEditorProps) {
                   </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                  <AlertDialogCancel className="gap-2">Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 gap-2">
-                      <Trash2 className="h-4 w-4" />
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deleteItem(item.id, formId)} className="bg-destructive text-white hover:bg-destructive/90">
                       Delete Question
                   </AlertDialogAction>
               </AlertDialogFooter>

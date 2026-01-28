@@ -5,7 +5,7 @@ import { Droppable, Draggable, DroppableProvided, DraggableProvided } from "@hel
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { GripVertical, Trash2, PlusCircle, AlertCircle } from "lucide-react";
+import { GripVertical, Trash2, PlusCircle, AlertCircle, Save } from "lucide-react";
 import { updateSection, deleteSection, addItem } from "../../actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -31,18 +31,23 @@ export function SectionEditor({ section, formId, dragHandleProps }: SectionEdito
   const [title, setTitle] = useState(section.title);
   const [addingItem, setAddingItem] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const hasChanges = title !== section.title;
 
   useEffect(() => {
     setTitle(section.title);
   }, [section.title]);
 
-  const handleTitleBlur = async () => {
-    if (title !== section.title) {
-      try {
-        await updateSection(section.id, formId, { title });
-      } catch (error) {
-        toast.error("Failed to update section title");
-      }
+  const handleSaveTitle = async () => {
+    setIsSaving(true);
+    try {
+      await updateSection(section.id, formId, { title });
+      toast.success("Section title saved");
+    } catch (error) {
+      toast.error("Failed to update section title");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -79,10 +84,24 @@ export function SectionEditor({ section, formId, dragHandleProps }: SectionEdito
             <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                onBlur={handleTitleBlur}
-                className="font-semibold text-base border-transparent hover:border-input bg-transparent px-2 h-9 focus-visible:ring-1 max-w-md"
+                className={cn(
+                    "font-semibold text-base border-transparent hover:border-input bg-transparent px-2 h-9 focus-visible:ring-1 max-w-md",
+                    hasChanges && "bg-yellow-50"
+                )}
                 placeholder="Section Title"
             />
+            {hasChanges && (
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-100 bg-yellow-50 shadow-sm"
+                    onClick={handleSaveTitle}
+                    disabled={isSaving}
+                    title="Save Section Title"
+                >
+                    <Save className={cn("h-4 w-4", isSaving && "animate-pulse")} />
+                </Button>
+            )}
             </div>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => setShowDeleteModal(true)}>
