@@ -338,6 +338,12 @@
     headerFieldsContainer.appendChild(dateRow);
 
     var fCaseCategory = createCompactField("Case Category", "🗂️", "text", true);
+    addListener(fCaseCategory.input, "keydown", function(e){
+        if(e.key === "Enter" && fCaseCategory.input.value.trim() === "") {
+            e.preventDefault();
+            fCaseCategory.input.value = "Payroll > ";
+        }
+    });
     headerFieldsContainer.appendChild(fCaseCategory.div);
 
     var fIssueConcern = createCompactField("Issue/Concern", "✍️", "textarea", true);
