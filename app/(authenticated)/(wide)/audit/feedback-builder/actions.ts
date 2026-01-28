@@ -83,74 +83,105 @@ export async function getFormWithFeedback(formId: string) {
   
   if (!user) throw new Error("Unauthorized");
 
-  // 1. Get form structure
+  // 1. Get form structure from NEW tables with proper relational joins
   const { data: form, error: formError } = await supabase
-    .from('tracker_audit_forms')
+    .from('form_templates')
     .select(`
       id,
       title,
-      tracker_audit_groups (
+      form_sections (
         id,
         title,
         order_index,
-        tracker_audit_items (
+        form_items (
           id,
-          question_text,
+          label,
           short_name,
+          type,
           order_index,
-          tracker_audit_item_options (
+          form_item_options (
             id,
             label,
+            value,
             is_correct,
+            is_default,
+            color,
             order_index
           )
         )
       )
     `)
     .eq('id', formId)
+    .order('order_index', { foreignTable: 'form_sections' })
     .single();
 
   if (formError) throw formError;
 
-  // 2. Get user feedback
-  const optionIds = form.tracker_audit_groups
-    .flatMap((g: any) => g.tracker_audit_items)
-    .flatMap((i: any) => i.tracker_audit_item_options)
+  // 2. Sort nested items and options
+  if (form.form_sections) {
+      form.form_sections.forEach((section: any) => {
+          if (section.form_items) {
+              section.form_items.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0));
+              section.form_items.forEach((item: any) => {
+                  if (item.form_item_options) {
+                      item.form_item_options.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0));
+                  }
+              });
+          }
+      });
+  }
+
+  // 3. Get user feedback
+  const optionIds = (form.form_sections || [])
+    .flatMap((s: any) => s.form_items || [])
+    .flatMap((i: any) => i.form_item_options || [])
     .map((o: any) => o.id);
 
-  const [generalRes, tagsRes] = await Promise.all([
-    supabase
-      .from('feedback_general')
-      .select('option_id, feedback_text')
-      .in('option_id', optionIds)
-      .eq('user_id', user.id),
-    supabase
-      .from('feedback_tags')
-      .select('id, option_id, tag_label, feedback_text')
-      .in('option_id', optionIds)
-      .eq('user_id', user.id)
-  ]);
+  let generalMap: Record<string, string> = {};
+  let tagsMap: Record<string, any[]> = {};
 
-  const generalMap = (generalRes.data || []).reduce((acc: any, curr: any) => {
-    acc[curr.option_id] = curr.feedback_text;
-    return acc;
-  }, {});
+  if (optionIds.length > 0) {
+    const [generalRes, tagsRes] = await Promise.all([
+        supabase
+          .from('feedback_general')
+          .select('option_id, feedback_text')
+          .in('option_id', optionIds)
+          .eq('user_id', user.id),
+        supabase
+          .from('feedback_tags')
+          .select('id, option_id, tag_label, feedback_text')
+          .in('option_id', optionIds)
+          .eq('user_id', user.id)
+      ]);
 
-  const tagsMap = (tagsRes.data || []).reduce((acc: any, curr: any) => {
-    if (!acc[curr.option_id]) acc[curr.option_id] = [];
-    acc[curr.option_id].push(curr);
-    return acc;
-  }, {});
+      generalMap = (generalRes.data || []).reduce((acc: any, curr: any) => {
+        acc[curr.option_id] = curr.feedback_text;
+        return acc;
+      }, {});
 
-  // 3. Merge feedback into form structure
-  form.tracker_audit_groups.forEach((group: any) => {
-    group.tracker_audit_items.forEach((item: any) => {
-      item.tracker_audit_item_options.forEach((option: any) => {
-        option.feedback_general = generalMap[option.id] ? [{ feedback_text: generalMap[option.id] }] : [];
-        option.feedback_tags = tagsMap[option.id] || [];
-      });
-    });
-  });
+      tagsMap = (tagsRes.data || []).reduce((acc: any, curr: any) => {
+        if (!acc[curr.option_id]) acc[curr.option_id] = [];
+        acc[curr.option_id].push(curr);
+        return acc;
+      }, {});
+  }
 
-  return form;
+  // 4. Merge feedback into form structure
+  const adaptedForm = {
+      ...form,
+      tracker_audit_groups: (form.form_sections || []).map((section: any) => ({
+          ...section,
+          tracker_audit_items: (section.form_items || []).map((item: any) => ({
+              ...item,
+              question_text: item.label,
+              tracker_audit_item_options: (item.form_item_options || []).map((option: any) => ({
+                  ...option,
+                  feedback_general: generalMap[option.id] ? [{ feedback_text: generalMap[option.id] }] : [],
+                  feedback_tags: tagsMap[option.id] || []
+              }))
+          }))
+      }))
+  };
+
+  return adaptedForm;
 }

@@ -8,7 +8,7 @@ export default async function FeedbackBuilderPage() {
   const supabase = await createClient();
   
   const { data: forms } = await supabase
-    .from('tracker_audit_forms')
+    .from('form_templates')
     .select('*')
     .order('created_at', { ascending: false });
 

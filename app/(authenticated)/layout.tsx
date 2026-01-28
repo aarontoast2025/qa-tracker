@@ -5,6 +5,13 @@ import { Suspense } from "react";
 import { ChatWidget } from "@/components/chat/chat-widget";
 import { SuspensionMonitor } from "@/components/suspension-monitor";
 import { createClient } from "@/lib/supabase/server";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ClipboardList, FileText, ChevronDown } from "lucide-react";
 
 export default async function ProtectedLayout({
   children,
@@ -25,7 +32,28 @@ export default async function ProtectedLayout({
                 <span>Tracker</span>
               </Link>
             </div>
-            <div className="flex items-center gap-4">
+            
+            <div className="flex items-center gap-6">
+                <DropdownMenu>
+                    <DropdownMenuTrigger className="flex items-center gap-1 font-medium hover:text-primary transition-colors focus:outline-none">
+                        Audit <ChevronDown className="h-4 w-4 opacity-50" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                            <Link href="/audit/form-builder" className="cursor-pointer">
+                                <ClipboardList className="mr-2 h-4 w-4" />
+                                <span>Form Builder</span>
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href="/audit/feedback-builder" className="cursor-pointer">
+                                <FileText className="mr-2 h-4 w-4" />
+                                <span>Feedback Builder</span>
+                            </Link>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
               <Suspense>
                 <AuthButton />
               </Suspense>

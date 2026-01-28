@@ -39,8 +39,10 @@ interface FeedbackBuilderClientProps {
 export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
   const router = useRouter();
   
+  const groups = form.tracker_audit_groups || [];
+
   // State for navigation
-  const [activeGroupId, setActiveGroupId] = useState<string>(form.tracker_audit_groups[0]?.id || "");
+  const [activeGroupId, setActiveGroupId] = useState<string>(groups[0]?.id || "");
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
   // State for editing
@@ -50,23 +52,23 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; tagId: string } | null>(null);
 
   const activeGroup = useMemo(() => 
-    form.tracker_audit_groups.find((g: any) => g.id === activeGroupId),
-    [form.tracker_audit_groups, activeGroupId]
+    groups.find((g: any) => g.id === activeGroupId),
+    [groups, activeGroupId]
   );
 
   const activeItem = useMemo(() => 
-    activeGroup?.tracker_audit_items.find((i: any) => i.id === activeItemId),
+    activeGroup?.tracker_audit_items?.find((i: any) => i.id === activeItemId),
     [activeGroup, activeItemId]
   );
 
   // Auto-select first item when group changes
   useEffect(() => {
     if (activeGroup && !activeItemId) {
-        setActiveItemId(activeGroup.tracker_audit_items[0]?.id || null);
+        setActiveItemId(activeGroup.tracker_audit_items?.[0]?.id || null);
     } else if (activeGroup && activeItemId) {
-        const itemExists = activeGroup.tracker_audit_items.some((i: any) => i.id === activeItemId);
+        const itemExists = activeGroup.tracker_audit_items?.some((i: any) => i.id === activeItemId);
         if (!itemExists) {
-            setActiveItemId(activeGroup.tracker_audit_items[0]?.id || null);
+            setActiveItemId(activeGroup.tracker_audit_items?.[0]?.id || null);
         }
     }
   }, [activeGroupId, activeGroup]);
@@ -118,7 +120,7 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
             <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Groups</Label>
             <Tabs value={activeGroupId} onValueChange={setActiveGroupId} className="w-full mt-2">
               <TabsList className="grid grid-cols-2 w-full h-auto bg-muted/50 p-1">
-                {form.tracker_audit_groups.map((group: any) => (
+                {groups.map((group: any) => (
                   <TabsTrigger 
                     key={group.id} 
                     value={group.id}
@@ -137,7 +139,7 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
             </div>
             <ScrollArea className="flex-1 min-h-0">
               <div className="p-2 space-y-1">
-                {activeGroup?.tracker_audit_items.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0)).map((item: any) => (
+                {activeGroup?.tracker_audit_items?.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0)).map((item: any) => (
                   <Button
                     key={item.id}
                     variant={activeItemId === item.id ? "secondary" : "ghost"}
@@ -184,11 +186,11 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
                         sortedOptions.length === 2 ? "grid-cols-2" : "grid-cols-1"
                     )}>
                         {sortedOptions.map((option: any) => (
-                            <div key={option.id} className="relative group border rounded-xl p-4 bg-muted/5 hover:bg-muted/10 transition-colors">
+                            <div key={option.id || `opt-${option.label}`} className="relative group border rounded-xl p-4 bg-muted/5 hover:bg-muted/10 transition-colors">
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex flex-col">
-                                        <span className="text-sm font-bold">{option.label}</span>
-                                        <span className="text-[10px] text-muted-foreground">Database Value: '{option.label.toLowerCase()}'</span>
+                                        <span className="text-sm font-bold">{option.label || "(Empty Label)"}</span>
+                                        <span className="text-[10px] text-muted-foreground">Database Value: '{option.value || ""}'</span>
                                     </div>
                                     <Badge variant="outline" className={cn(
                                         "text-[10px] uppercase font-bold px-2 py-0",
@@ -220,7 +222,7 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
                                         className="text-sm text-muted-foreground italic leading-relaxed min-h-[60px] cursor-pointer hover:text-foreground transition-colors pr-8"
                                         onClick={() => handleStartEditing(option)}
                                     >
-                                        {option.feedback_general?.[0]?.feedback_text || `No default feedback defined for "${option.label}". Click to edit.`}
+                                        {(option.feedback_general && option.feedback_general[0]?.feedback_text) || `No default feedback defined for "${option.label}". Click to edit.`}
                                         <Edit2 className="h-3 w-3 absolute right-4 top-[50px] opacity-0 group-hover:opacity-40" />
                                     </div>
                                 )}
@@ -247,8 +249,8 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
                     </div>
 
                     <div className="space-y-3">
-                        {sortedOptions.some(o => o.feedback_tags?.length > 0) ? (
-                            sortedOptions.flatMap(o => o.feedback_tags.map((t: any) => ({ ...t, option_label: o.label, option_is_correct: o.is_correct, option_id: o.id }))).map((tag: any) => (
+                        {sortedOptions.some(o => o.feedback_tags && o.feedback_tags.length > 0) ? (
+                            sortedOptions.flatMap(o => (o.feedback_tags || []).map((t: any) => ({ ...t, option_label: o.label, option_is_correct: o.is_correct, option_id: o.id }))).map((tag: any) => (
                                 <div key={tag.id} className="flex items-start gap-4 p-4 border rounded-xl bg-white group hover:shadow-sm transition-all">
                                     <div className="flex flex-col items-center gap-1 shrink-0 w-24 pt-1">
                                         <span className="text-[9px] uppercase font-bold text-muted-foreground">Trigger</span>
