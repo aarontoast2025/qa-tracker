@@ -556,10 +556,9 @@
                         if(s.itemType === 'dropdown_custom' || s.itemType === 'dropdown') {
                             if(buttons[s.selIndex]) buttons[s.selIndex].click();
                         } else {
-                            var correctOpt = s.options.filter(function(o){ return o.id === s.sel; })[0];
-                            if(correctOpt) {
-                                var btnIdx = correctOpt.is_correct ? 0 : 1;
-                                if(buttons[btnIdx]) buttons[btnIdx].click();
+                            var btnIdx = s.options.findIndex(function(o){ return o.id === s.sel; });
+                            if(btnIdx !== -1 && buttons[btnIdx]) {
+                                buttons[btnIdx].click();
                             }
                         }
                     }
@@ -774,58 +773,52 @@
                             });
                             itemBody.appendChild(select);
                         } else {
-                            var btnYes = createElement("button");
-                            var btnNo = createElement("button");
-                            var yesOpt = item.options.filter(function(o){ return o.is_correct; })[0];
-                            var noOpt = item.options.filter(function(o){ return !o.is_correct; })[0];
-                            
-                            btnYes.textContent = yesOpt ? yesOpt.label : "Yes";
-                            btnNo.textContent = noOpt ? noOpt.label : "No";
-                            
                             var btnGroup = createElement("div", sBtnGroup);
-                            btnGroup.appendChild(btnYes);
-                            btnGroup.appendChild(btnNo);
+                            var optionButtons = [];
 
-                            var updateBtnStyle = function(val) {
+                            item.options.forEach(function(opt){
+                                var btn = createElement("button");
+                                btn.textContent = opt.label;
+                                // Initial base style
+                                btn.style.cssText = sBtnBase;
+                                
+                                addListener(btn, "click", function(){
+                                    state[key].sel = opt.id; 
+                                    state[key].selectedTags = []; 
+                                    updateBtnStyles(); 
+                                    renderTags(); 
+                                    updateHeaderBg(); 
+                                    updateText(key); 
+                                });
+                                
+                                btnGroup.appendChild(btn);
+                                optionButtons.push({ dom: btn, id: opt.id });
+                            });
+
+                            var updateBtnStyles = function() {
+                                var val = state[key].sel;
                                 var theme = getTheme(item, val);
                                 var cols = getColors(theme);
                                 var activeStyle = sBtnBase + ";background:" + cols.bg + ";color:" + cols.txt + ";border-color:" + cols.border;
                                 var inactiveStyle = sBtnBase + ";background:white;color:#333;border-color:#ccc";
 
-                                if(val === (yesOpt ? yesOpt.id : null)) {
-                                    btnYes.style.cssText = activeStyle;
-                                    btnNo.style.cssText = inactiveStyle;
-                                } else {
-                                    btnYes.style.cssText = inactiveStyle;
-                                    btnNo.style.cssText = activeStyle;
-                                }
+                                optionButtons.forEach(function(b){
+                                    if(b.id === val) {
+                                        b.dom.style.cssText = activeStyle;
+                                    } else {
+                                        b.dom.style.cssText = inactiveStyle;
+                                    }
+                                });
                             };
 
                             state[key].refreshUI = function() {
-                                updateBtnStyle(state[key].sel);
+                                updateBtnStyles();
                                 checkbox.checked = state[key].checked;
                                 renderTags();
                                 updateHeaderBg();
                             };
 
-                            updateBtnStyle(state[key].sel);
-
-                            addListener(btnYes, "click", function(){
-                                state[key].sel = yesOpt.id; 
-                                state[key].selectedTags = []; 
-                                updateBtnStyle(yesOpt.id); 
-                                renderTags(); 
-                                updateHeaderBg(); 
-                                updateText(key); 
-                            });
-                            addListener(btnNo, "click", function(){
-                                state[key].sel = noOpt.id; 
-                                state[key].selectedTags = []; 
-                                updateBtnStyle(noOpt.id); 
-                                renderTags(); 
-                                updateHeaderBg(); 
-                                updateText(key); 
-                            });
+                            updateBtnStyles();
                             itemBody.appendChild(btnGroup);
                         }
 

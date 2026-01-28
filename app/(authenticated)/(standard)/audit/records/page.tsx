@@ -277,7 +277,7 @@ export default function AuditRecordsPage() {
             }
 
             sectionMap[section.title].push({
-                question: item.short_name || item.label,
+                question: item.label,
                 answer: answer.answer_text || '',
                 feedback: answer.feedback_text || '',
                 order: item.order_index
