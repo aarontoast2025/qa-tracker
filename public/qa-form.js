@@ -3,6 +3,9 @@
     console.log("QA Tool: Initializing...");
 
     var API_BASE_URL = 'https://qa-tracker-toast.vercel.app';
+    // Check if we should use local API (useful for development)
+    if (window.QA_TOOL_LOCAL) API_BASE_URL = 'http://localhost:3000';
+    
     var FORM_ID = 'afb48a57-c3d3-47c7-a0fe-555db55f3b7b';
 
     var state = {};
@@ -81,7 +84,7 @@
 
     var updateText = function(key) {
         var s = state[key];
-        if(!s.domTextarea) return;
+        if(!s || !s.domTextarea) return;
         
         var txt = "";
         if(s.selectedTags.length > 0) {
@@ -617,226 +620,233 @@
             });
 
             // Initialize state
-            globalStructure.forEach(function(group){
-                group.items.forEach(function(item){
-                    var key = group.id + ":" + item.id;
-                    var defaultOpt = item.options.filter(function(o){ return o.is_default; })[0] || item.options[0];
-                    
-                    state[key] = {
-                        id: item.id, // Store item ID separately to avoid UUID splitting issues
-                        sel: defaultOpt ? defaultOpt.id : null,
-                        selIndex: defaultOpt ? item.options.indexOf(defaultOpt) : 0,
-                        text: "",
-                        checked: false,
-                        groupName: group.title,
-                        itemId: item.order_index + 1,
-                        itemType: item.item_type,
-                        options: item.options,
-                        selectedTags: [],
-                        domTextarea: null,
-                        refreshUI: null
-                    };
-                    updateText(key);
+            if (globalStructure && Array.isArray(globalStructure)) {
+                globalStructure.forEach(function(group){
+                    if (!group.items) return;
+                    group.items.forEach(function(item){
+                        var key = group.id + ":" + item.id;
+                        var options = item.options || [];
+                        var defaultOpt = options.filter(function(o){ return o.is_default; })[0] || options[0];
+                        
+                        state[key] = {
+                            id: item.id,
+                            sel: defaultOpt ? defaultOpt.id : null,
+                            selIndex: defaultOpt ? options.indexOf(defaultOpt) : 0,
+                            text: "",
+                            checked: false,
+                            groupName: group.title,
+                            itemId: (item.order_index || 0) + 1,
+                            itemType: item.item_type,
+                            options: options,
+                            selectedTags: [],
+                            domTextarea: null,
+                            refreshUI: null
+                        };
+                        updateText(key);
+                    });
                 });
-            });
+            }
 
             // Render groups
-            globalStructure.forEach(function(group){
-                var groupTitle = createElement("div", sGroupHeader);
-                groupTitle.textContent = group.title;
-                contentContainer.appendChild(groupTitle);
+            if (globalStructure && Array.isArray(globalStructure)) {
+                globalStructure.forEach(function(group){
+                    var groupTitle = createElement("div", sGroupHeader);
+                    groupTitle.textContent = group.title;
+                    contentContainer.appendChild(groupTitle);
 
-                group.items.forEach(function(item){
-                    var key = group.id + ":" + item.id;
-                    var itemContainer = createElement("div", sItemContainer);
-                    var itemHeader = createElement("div", sItemHeader);
-                    var leftGroup = createElement("div");
-                    leftGroup.style.cssText = "display:flex;align-items:center;gap:10px";
+                    if (!group.items) return;
+                    group.items.forEach(function(item){
+                        var key = group.id + ":" + item.id;
+                        var itemContainer = createElement("div", sItemContainer);
+                        var itemHeader = createElement("div", sItemHeader);
+                        var leftGroup = createElement("div");
+                        leftGroup.style.cssText = "display:flex;align-items:center;gap:10px";
 
-                    var checkbox = createElement("input");
-                    checkbox.type = "checkbox";
-                    checkbox.style.cursor = "pointer";
-                    addListener(checkbox, "click", function(e){ 
-                        e.stopPropagation(); 
-                        state[key].checked = e.target.checked; 
-                    });
-
-                    var label = createElement("span");
-                    var cleanText = (item.short_name || item.question_text).replace(/^\d+\.\s*/, "");
-                    label.textContent = (item.order_index + 1) + ". " + cleanText;
-                    leftGroup.appendChild(checkbox);
-                    leftGroup.appendChild(label);
-
-                    var arrow = createElement("span");
-                    arrow.style.fontSize = "10px";
-                    arrow.textContent = "▼";
-                    itemHeader.appendChild(leftGroup);
-                    itemHeader.appendChild(arrow);
-
-                    var expanded = false;
-                    var itemBody = createElement("div", sItemBody);
-                    var tagContainer = createElement("div", sTagContainer);
-
-                    var updateHeaderBg = function() {
-                        var hasContent = state[key].text.trim().length > 0 || state[key].selectedTags.length > 0;
-                        if(hasContent) {
-                            var theme = getTheme(item, state[key].sel);
-                            var cols = getColors(theme);
-                            itemHeader.style.background = cols.header;
-                        } else {
-                            itemHeader.style.background = expanded ? "#e8e8e8" : "#f5f5f5";
-                        }
-                    };
-
-                    var renderTags = function() {
-                        tagContainer.innerHTML = "";
-                        var currentSel = state[key].sel;
-                        var relevantTags = globalFeedbackTags.filter(function(t){ 
-                            return t.option_id === currentSel; 
+                        var checkbox = createElement("input");
+                        checkbox.type = "checkbox";
+                        checkbox.style.cursor = "pointer";
+                        addListener(checkbox, "click", function(e){ 
+                            e.stopPropagation(); 
+                            state[key].checked = e.target.checked; 
                         });
 
-                        relevantTags.forEach(function(tagData){
-                            var tagBtn = createElement("div");
-                            var theme = getTheme(item, currentSel);
-                            var cols = getColors(theme);
-                            var isActive = state[key].selectedTags.some(function(t){ return t.id === tagData.id; });
-                            
-                            if(isActive) {
-                                tagBtn.style.cssText = "padding:4px 8px;border:1px solid " + cols.border + ";border-radius:12px;font-size:11px;cursor:pointer;background:" + cols.bg + ";color:" + cols.txt + ";font-weight:500;transition:all 0.2s";
-                            } else {
-                                tagBtn.style.cssText = "padding:4px 8px;border:1px solid #ccc;border-radius:12px;font-size:11px;cursor:pointer;background:#f9fafb;color:#333;transition:all 0.2s";
-                            }
-                            tagBtn.textContent = tagData.tag_label;
+                        var label = createElement("span");
+                        var cleanText = (item.short_name || item.question_text).replace(/^\d+\.\s*/, "");
+                        label.textContent = (item.order_index + 1) + ". " + cleanText;
+                        leftGroup.appendChild(checkbox);
+                        leftGroup.appendChild(label);
 
-                            addListener(tagBtn, "click", function(){
+                        var arrow = createElement("span");
+                        arrow.style.fontSize = "10px";
+                        arrow.textContent = "▼";
+                        itemHeader.appendChild(leftGroup);
+                        itemHeader.appendChild(arrow);
+
+                        var expanded = false;
+                        var itemBody = createElement("div", sItemBody);
+                        var tagContainer = createElement("div", sTagContainer);
+
+                        var updateHeaderBg = function() {
+                            var hasContent = state[key].text.trim().length > 0 || state[key].selectedTags.length > 0;
+                            if(hasContent) {
+                                var theme = getTheme(item, state[key].sel);
+                                var cols = getColors(theme);
+                                itemHeader.style.background = cols.header;
+                            } else {
+                                itemHeader.style.background = expanded ? "#e8e8e8" : "#f5f5f5";
+                            }
+                        };
+
+                        var renderTags = function() {
+                            tagContainer.innerHTML = "";
+                            var currentSel = state[key].sel;
+                            var relevantTags = globalFeedbackTags.filter(function(t){ 
+                                return t.option_id === currentSel; 
+                            });
+
+                            relevantTags.forEach(function(tagData){
+                                var tagBtn = createElement("div");
+                                var theme = getTheme(item, currentSel);
+                                var cols = getColors(theme);
+                                var isActive = state[key].selectedTags.some(function(t){ return t.id === tagData.id; });
+                                
                                 if(isActive) {
-                                    state[key].selectedTags = state[key].selectedTags.filter(function(t){ return t.id !== tagData.id; });
+                                    tagBtn.style.cssText = "padding:4px 8px;border:1px solid " + cols.border + ";border-radius:12px;font-size:11px;cursor:pointer;background:" + cols.bg + ";color:" + cols.txt + ";font-weight:500;transition:all 0.2s";
                                 } else {
-                                    state[key].selectedTags.push(tagData);
+                                    tagBtn.style.cssText = "padding:4px 8px;border:1px solid #ccc;border-radius:12px;font-size:11px;cursor:pointer;background:#f9fafb;color:#333;transition:all 0.2s";
                                 }
+                                tagBtn.textContent = tagData.tag_label;
+
+                                addListener(tagBtn, "click", function(){
+                                    if(isActive) {
+                                        state[key].selectedTags = state[key].selectedTags.filter(function(t){ return t.id !== tagData.id; });
+                                    } else {
+                                        state[key].selectedTags.push(tagData);
+                                    }
+                                    renderTags();
+                                    updateHeaderBg();
+                                    updateText(key);
+                                });
+                                tagContainer.appendChild(tagBtn);
+                            });
+                        };
+
+                        if(item.itemType === 'dropdown_custom') {
+                            var select = createElement("select", sSelect);
+                            item.options.forEach(function(opt, idx){
+                                var o = createElement("option");
+                                o.value = idx;
+                                o.textContent = opt.label;
+                                if(idx === state[key].selIndex) o.selected = true;
+                                select.appendChild(o);
+                            });
+
+                            state[key].refreshUI = function() {
+                                select.value = state[key].selIndex;
+                                checkbox.checked = state[key].checked;
+                                renderTags();
+                                updateHeaderBg();
+                            };
+
+                            addListener(select, "change", function(e){
+                                state[key].selIndex = parseInt(e.target.value);
+                                state[key].sel = item.options[state[key].selIndex].id;
+                                state[key].selectedTags = [];
                                 renderTags();
                                 updateHeaderBg();
                                 updateText(key);
                             });
-                            tagContainer.appendChild(tagBtn);
-                        });
-                    };
+                            itemBody.appendChild(select);
+                        } else {
+                            var btnYes = createElement("button");
+                            var btnNo = createElement("button");
+                            var yesOpt = item.options.filter(function(o){ return o.is_correct; })[0];
+                            var noOpt = item.options.filter(function(o){ return !o.is_correct; })[0];
+                            
+                            btnYes.textContent = yesOpt ? yesOpt.label : "Yes";
+                            btnNo.textContent = noOpt ? noOpt.label : "No";
+                            
+                            var btnGroup = createElement("div", sBtnGroup);
+                            btnGroup.appendChild(btnYes);
+                            btnGroup.appendChild(btnNo);
 
-                    if(item.item_type === 'dropdown_custom') {
-                        var select = createElement("select", sSelect);
-                        item.options.forEach(function(opt, idx){
-                            var o = createElement("option");
-                            o.value = idx;
-                            o.textContent = opt.label;
-                            if(idx === state[key].selIndex) o.selected = true;
-                            select.appendChild(o);
-                        });
+                            var updateBtnStyle = function(val) {
+                                var theme = getTheme(item, val);
+                                var cols = getColors(theme);
+                                var activeStyle = sBtnBase + ";background:" + cols.bg + ";color:" + cols.txt + ";border-color:" + cols.border;
+                                var inactiveStyle = sBtnBase + ";background:white;color:#333;border-color:#ccc";
 
-                        state[key].refreshUI = function() {
-                            select.value = state[key].selIndex;
-                            checkbox.checked = state[key].checked;
-                            renderTags();
-                            updateHeaderBg();
-                        };
+                                if(val === (yesOpt ? yesOpt.id : null)) {
+                                    btnYes.style.cssText = activeStyle;
+                                    btnNo.style.cssText = inactiveStyle;
+                                } else {
+                                    btnYes.style.cssText = inactiveStyle;
+                                    btnNo.style.cssText = activeStyle;
+                                }
+                            };
 
-                        addListener(select, "change", function(e){
-                            state[key].selIndex = parseInt(e.target.value);
-                            state[key].sel = item.options[state[key].selIndex].id;
-                            state[key].selectedTags = [];
-                            renderTags();
-                            updateHeaderBg();
-                            updateText(key);
-                        });
-                        itemBody.appendChild(select);
-                    } else {
-                        var btnYes = createElement("button");
-                        var btnNo = createElement("button");
-                        var yesOpt = item.options.filter(function(o){ return o.is_correct; })[0];
-                        var noOpt = item.options.filter(function(o){ return !o.is_correct; })[0];
-                        
-                        btnYes.textContent = yesOpt ? yesOpt.label : "Yes";
-                        btnNo.textContent = noOpt ? noOpt.label : "No";
-                        
-                        var btnGroup = createElement("div", sBtnGroup);
-                        btnGroup.appendChild(btnYes);
-                        btnGroup.appendChild(btnNo);
+                            state[key].refreshUI = function() {
+                                updateBtnStyle(state[key].sel);
+                                checkbox.checked = state[key].checked;
+                                renderTags();
+                                updateHeaderBg();
+                            };
 
-                        var updateBtnStyle = function(val) {
-                            var theme = getTheme(item, val);
-                            var cols = getColors(theme);
-                            var activeStyle = sBtnBase + ";background:" + cols.bg + ";color:" + cols.txt + ";border-color:" + cols.border;
-                            var inactiveStyle = sBtnBase + ";background:white;color:#333;border-color:#ccc";
-
-                            if(val === (yesOpt ? yesOpt.id : null)) {
-                                btnYes.style.cssText = activeStyle;
-                                btnNo.style.cssText = inactiveStyle;
-                            } else {
-                                btnYes.style.cssText = inactiveStyle;
-                                btnNo.style.cssText = activeStyle;
-                            }
-                        };
-
-                        state[key].refreshUI = function() {
                             updateBtnStyle(state[key].sel);
-                            checkbox.checked = state[key].checked;
-                            renderTags();
+
+                            addListener(btnYes, "click", function(){
+                                state[key].sel = yesOpt.id; 
+                                state[key].selectedTags = []; 
+                                updateBtnStyle(yesOpt.id); 
+                                renderTags(); 
+                                updateHeaderBg(); 
+                                updateText(key); 
+                            });
+                            addListener(btnNo, "click", function(){
+                                state[key].sel = noOpt.id; 
+                                state[key].selectedTags = []; 
+                                updateBtnStyle(noOpt.id); 
+                                renderTags(); 
+                                updateHeaderBg(); 
+                                updateText(key); 
+                            });
+                            itemBody.appendChild(btnGroup);
+                        }
+
+                        itemBody.appendChild(tagContainer);
+
+                        var textarea = createElement("textarea", sTextarea);
+                        state[key].domTextarea = textarea;
+                        textarea.placeholder = "Comments...";
+                        addListener(textarea, "input", function(e){
+                            state[key].text = e.target.value;
                             updateHeaderBg();
-                        };
-
-                        updateBtnStyle(state[key].sel);
-
-                        addListener(btnYes, "click", function(){
-                            state[key].sel = yesOpt.id; 
-                            state[key].selectedTags = []; 
-                            updateBtnStyle(yesOpt.id); 
-                            renderTags(); 
-                            updateHeaderBg(); 
-                            updateText(key); 
                         });
-                        addListener(btnNo, "click", function(){
-                            state[key].sel = noOpt.id; 
-                            state[key].selectedTags = []; 
-                            updateBtnStyle(noOpt.id); 
-                            renderTags(); 
-                            updateHeaderBg(); 
-                            updateText(key); 
+                        itemBody.appendChild(textarea);
+                        
+                        // Populate initial feedback immediately
+                        updateText(key);
+
+                        addListener(itemHeader, "click", function(){
+                            expanded = !expanded;
+                            itemBody.style.display = expanded ? "block" : "none";
+                            updateHeaderBg();
+                            arrow.textContent = expanded ? "▲" : "▼";
+                            if(expanded) renderTags();
                         });
-                        itemBody.appendChild(btnGroup);
-                    }
 
-                    itemBody.appendChild(tagContainer);
-
-                    var textarea = createElement("textarea", sTextarea);
-                    state[key].domTextarea = textarea;
-                    textarea.placeholder = "Comments...";
-                    addListener(textarea, "input", function(e){
-                        state[key].text = e.target.value;
+                        itemContainer.appendChild(itemHeader);
+                        itemContainer.appendChild(itemBody);
+                        contentContainer.appendChild(itemContainer);
+                        
+                        // Initial update for header background
                         updateHeaderBg();
                     });
-                    itemBody.appendChild(textarea);
-                    
-                    // Populate initial feedback immediately
-                    updateText(key);
+                  });
+                }
 
-                    addListener(itemHeader, "click", function(){
-                        expanded = !expanded;
-                        itemBody.style.display = expanded ? "block" : "none";
-                        updateHeaderBg();
-                        arrow.textContent = expanded ? "▲" : "▼";
-                        if(expanded) renderTags();
-                    });
-
-                    itemContainer.appendChild(itemHeader);
-                    itemContainer.appendChild(itemBody);
-                    contentContainer.appendChild(itemContainer);
-                    
-                    // Initial update for header background
-                    updateHeaderBg();
-                });
-            });
-
-            // After everything is loaded, try to check for existing record if ID is present
-            if(fInteractionId.input.value) checkExistingRecord();
+                // After everything is loaded, try to check for existing record if ID is present
+                if(fInteractionId.input.value) checkExistingRecord();
 
         }).catch(function(err){
             console.error(err);
