@@ -127,14 +127,15 @@ export default function AuditRecordsPage() {
         }
 
         const { data, error } = await supabase
-            .from('audit_submissions')
+            .from('audit_evaluations')
             .select('*')
-            .gte('submitted_at', startDate.toISOString())
-            .lte('submitted_at', endDate.toISOString())
-            .order('submitted_at', { ascending: false });
+            .gte('created_at', startDate.toISOString())
+            .lte('created_at', endDate.toISOString())
+            .order('created_at', { ascending: false });
 
         if (error) {
             console.error("Error fetching records:", error);
+            toast.error("Failed to load records");
         } else {
             setRecords(data || []);
         }
@@ -150,7 +151,7 @@ export default function AuditRecordsPage() {
         const numericScore = score === "" ? null : parseFloat(score);
         
         const { error } = await supabase
-            .from('audit_submissions')
+            .from('audit_evaluations')
             .update({ qa_score: numericScore })
             .eq('id', id);
 
@@ -171,7 +172,7 @@ export default function AuditRecordsPage() {
         
         setIsDeleting(true);
         const supabase = createClient();
-        const { error } = await supabase.from('audit_submissions').delete().eq('id', recordToDelete);
+        const { error } = await supabase.from('audit_evaluations').delete().eq('id', recordToDelete);
         
         if (error) {
             toast.error("Failed to delete record: " + error.message);
@@ -197,9 +198,9 @@ export default function AuditRecordsPage() {
         const lines = [
             `Interaction ID: ${record.interaction_id || ''}`,
             `Advocate Name: ${record.advocate_name || ''}`,
-            `Date of Interaction: ${formatDateMMDDYY(record.interaction_date)}`,
-            `Date of Evaluation: ${formatDateMMDDYY(record.evaluation_date)}`,
-            `Call ANI/DNIS: ${record.call_ani_dnis || ''}`,
+            `Date of Interaction: ${formatDateMMDDYY(record.date_interaction)}`,
+            `Date of Evaluation: ${formatDateMMDDYY(record.date_evaluation)}`,
+            `Call ANI/DNIS: ${record.call_ani || ''}`,
             `Case #: ${record.case_number || ''}`,
             `Call Duration: ${record.call_duration || ''}`,
             `Case Category: ${record.case_category || ''}`,
@@ -217,74 +218,100 @@ export default function AuditRecordsPage() {
     const copyToWorkbook = async (record: any) => {
         const supabase = createClient();
         
-        // Fetch submission items with their question text and group names
-        const { data: items, error } = await supabase
-            .from('audit_submission_items')
-            .select(
-                `
-                answer_text,
-                feedback_text,
-                item:tracker_audit_items(
-                    question_text,
-                    short_name,
-                    order_index,
-                    group:tracker_audit_groups(title, order_index)
-                )
-            `)
-            .eq('submission_id', record.id);
-
-        if (error) {
-            toast.error("Failed to fetch details for workbook");
+        if (!record.form_id) {
+            toast.error("Cannot copy workbook data: Missing Form ID.");
             return;
         }
 
-        // Organize items by group
-        const groupsMap: Record<string, any[]> = {};
+        // 1. Fetch Form Sections (Groups)
+        const { data: sections, error: sectionsError } = await supabase
+            .from('form_sections')
+            .select('id, title, order_index')
+            .eq('form_id', record.form_id)
+            .order('order_index');
+
+        if (sectionsError) {
+            toast.error("Failed to fetch form structure");
+            return;
+        }
+
+        // 2. Fetch Form Items for these sections
+        const sectionIds = sections.map(s => s.id);
+        const { data: formItems, error: itemsError } = await supabase
+            .from('form_items')
+            .select('id, section_id, label, short_name, order_index')
+            .in('section_id', sectionIds)
+            .order('order_index');
+
+        if (itemsError) {
+            toast.error("Failed to fetch form items");
+            return;
+        }
+
+        // 3. Map Answers from JSONB
+        // record.form_data is an array of { item_id, answer_text, feedback_text, ... }
+        const answers = (record.form_data || []) as any[];
+        const answersMap = new Map();
+        answers.forEach(a => answersMap.set(a.item_id, a));
+
+        // Organize items by section
+        const sectionMap: Record<string, any[]> = {}; // sectionTitle -> items[]
         let complexityVal = '';
 
-        items?.forEach((item: any) => {
-            const groupTitle = item.item?.group?.title || 'Other';
-            if (!groupsMap[groupTitle]) groupsMap[groupTitle] = [];
-            groupsMap[groupTitle].push(item);
-
-            // Check if this is the complexity item
-            const questionText = item.item?.question_text?.toLowerCase() || '';
-            if (questionText.includes('complexity')) {
-                complexityVal = item.answer_text || '';
-            }
+        // Initialize map with sections
+        sections.forEach(s => {
+            sectionMap[s.title] = [];
         });
 
-        // Reconstruct the details block
+        // Populate sections with items + answers
+        formItems.forEach(item => {
+            const section = sections.find(s => s.id === item.section_id);
+            if (!section) return;
+
+            const answer = answersMap.get(item.id) || {};
+            
+            // Check for complexity
+            const qText = (item.label || '').toLowerCase();
+            if (qText.includes('complexity')) {
+                complexityVal = answer.answer_text || '';
+            }
+
+            sectionMap[section.title].push({
+                question: item.short_name || item.label,
+                answer: answer.answer_text || '',
+                feedback: answer.feedback_text || '',
+                order: item.order_index
+            });
+        });
+
+        // Build Details String
         const detailsLines = [
             `Interaction ID: ${record.interaction_id || ''}`,
             `Advocate Name: ${record.advocate_name || ''}`,
-            `Date of Interaction: ${formatDateMMDDYY(record.interaction_date)}`,
-            `Date of Evaluation: ${formatDateMMDDYY(record.evaluation_date)}`,
-            `Call ANI/DNIS: ${record.call_ani_dnis || ''}`,
+            `Date of Interaction: ${formatDateMMDDYY(record.date_interaction)}`,
+            `Date of Evaluation: ${formatDateMMDDYY(record.date_evaluation)}`,
+            `Call ANI/DNIS: ${record.call_ani || ''}`,
             `Case #: ${record.case_number || ''}`,
             `Call Duration: ${record.call_duration || ''}`,
             `Case Category: ${record.case_category || ''}`,
             `Issue/Concern: ${record.issue_concern || ''}`
         ];
 
-        // Sort groups by their order_index if available
-        const sortedGroupTitles = Object.keys(groupsMap).sort((a, b) => {
-            const orderA = groupsMap[a][0]?.item?.group?.order_index || 0;
-            const orderB = groupsMap[b][0]?.item?.group?.order_index || 0;
-            return orderA - orderB;
-        });
+        // Sort sections by order_index
+        sections.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
 
-        sortedGroupTitles.forEach(title => {
-            detailsLines.push(`\n${title.toUpperCase()}`);
-            // Sort items within group by order_index
-            const sortedItems = groupsMap[title].sort((a, b) => (a.item?.order_index || 0) - (b.item?.order_index || 0));
-            sortedItems.forEach((item: any) => {
-                const qText = item.item?.question_text || item.item?.short_name;
-                const ans = item.answer_text || '';
-                const fb = item.feedback_text || '';
-                detailsLines.push(`\n${qText}`);
-                detailsLines.push(`${ans} - ${fb}`);
-            });
+        sections.forEach(section => {
+            const items = sectionMap[section.title];
+            if (items && items.length > 0) {
+                detailsLines.push(`\n${section.title.toUpperCase()}`);
+                // Items are already sorted by db fetch order, but ensuring via local sort
+                items.sort((a, b) => a.order - b.order);
+                
+                items.forEach(i => {
+                    detailsLines.push(`\n${i.question}`);
+                    detailsLines.push(`${i.answer} - ${i.feedback}`);
+                });
+            }
         });
 
         const details = detailsLines.join('\n');
@@ -299,14 +326,14 @@ export default function AuditRecordsPage() {
             subCat = parts.slice(1).join(' > ');
         }
 
-        // Workbook columns: Active | Main Cat | Sub Cat | Details | Date Int | Date Eval | Case # | Int ID | QA Score | Duration | Complexity
+        // Workbook columns
         const workbookRow = [
             'Active',
             mainCat,
             subCat,
             `"${details.replace(/"/g, '""')}"`,
-            formatDateMMDDYY(record.interaction_date),
-            formatDateMMDDYY(record.evaluation_date),
+            formatDateMMDDYY(record.date_interaction),
+            formatDateMMDDYY(record.date_evaluation),
             record.case_number || '',
             record.interaction_id || '',
             record.qa_score ?? '',
@@ -441,22 +468,22 @@ export default function AuditRecordsPage() {
                                         <TableRow key={record.id} className="hover:bg-gray-50/50 transition-colors group">
                                             <TableCell className="py-3">
                                                 <div className="flex flex-col gap-1">
-                                                    <span className="text-sm font-medium">{format(new Date(record.submitted_at), 'MMM d, h:mm a')}</span>
-                                                    <ElapsedTime submittedAt={record.submitted_at} isCompleted={record.qa_score !== null && record.qa_score !== undefined} />
+                                                    <span className="text-sm font-medium">{format(new Date(record.created_at), 'MMM d, h:mm a')}</span>
+                                                    <ElapsedTime submittedAt={record.created_at} isCompleted={record.qa_score !== null && record.qa_score !== undefined} />
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-3">
                                                 <span className="text-sm">
-                                                    {record.interaction_date ? format(new Date(record.interaction_date), 'MMM d, yyyy') : '-'}
+                                                    {record.date_interaction ? format(new Date(record.date_interaction), 'MMM d, yyyy') : '-'}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="py-3">
                                                 <span className="text-sm">{record.advocate_name || '-'}</span>
                                             </TableCell>
                                             <TableCell className="py-3">
-                                                {record.page_url ? (
+                                                {record.source_url ? (
                                                     <a 
-                                                        href={record.page_url} 
+                                                        href={record.source_url} 
                                                         target="_blank" 
                                                         rel="noopener noreferrer"
                                                         className="text-xs font-mono bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded hover:bg-blue-100 transition-colors flex items-center w-fit gap-1"
@@ -519,7 +546,8 @@ export default function AuditRecordsPage() {
                                             </TableCell>
                                         </TableRow>
                                     ))
-                                )}
+                                )
+                            }
                             </TableBody>
                         </Table>
                     </div>

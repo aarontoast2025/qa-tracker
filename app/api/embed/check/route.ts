@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     
     // We try to find the most recent submission for this interaction and form
     const { data: submission, error: subError } = await supabase
-      .from('audit_submissions')
+      .from('audit_evaluations')
       .select('*')
       .eq('interaction_id', interactionId)
       .eq('form_id', formId)
@@ -34,18 +34,16 @@ export async function GET(request: Request) {
       return response;
     }
 
-    // Also fetch the items for this submission
-    const { data: items, error: itemsError } = await supabase
-      .from('audit_submission_items')
-      .select('*')
-      .eq('submission_id', submission.id);
+    // Map new table fields to old structure expected by frontend
+    const mappedSubmission = {
+      ...submission,
+      call_ani_dnis: submission.call_ani,
+      interaction_date: submission.date_interaction,
+      evaluation_date: submission.date_evaluation,
+      items: submission.form_data || []
+    };
 
-    if (itemsError) {
-      console.error("Fetch items error:", itemsError);
-      return NextResponse.json({ error: itemsError.message }, { status: 500 });
-    }
-
-    const response = NextResponse.json({ data: { ...submission, items } });
+    const response = NextResponse.json({ data: mappedSubmission });
     
     // CORS
     response.headers.set('Access-Control-Allow-Origin', '*');

@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ClipboardList, FileText, ChevronDown } from "lucide-react";
+import { ClipboardList, FileText, ChevronDown, Database } from "lucide-react";
 
 export default async function ProtectedLayout({
   children,
@@ -39,6 +39,12 @@ export default async function ProtectedLayout({
                         Audit <ChevronDown className="h-4 w-4 opacity-50" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                            <Link href="/audit/records" className="cursor-pointer">
+                                <Database className="mr-2 h-4 w-4" />
+                                <span>Audit Records</span>
+                            </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                             <Link href="/audit/form-builder" className="cursor-pointer">
                                 <ClipboardList className="mr-2 h-4 w-4" />
