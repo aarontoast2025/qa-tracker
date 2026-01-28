@@ -25,7 +25,7 @@
 
     // Styles
     var sOverlay = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.2);display:flex;align-items:flex-start;justify-content:center;z-index:99999;font-family:system-ui,sans-serif;padding-top:20px;overflow-y:auto;pointer-events:none";
-    var sModal = "background:white;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);width:90%;max-width:550px;height:80vh;max-height:800px;overflow:hidden;display:flex;flex-direction:column;cursor:grab;user-select:none;margin-bottom:20px;pointer-events:auto";
+    var sModal = "background:white;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);width:90%;max-width:550px;height:80vh;max-height:800px;overflow:hidden;display:flex;flex-direction:column;cursor:grab;user-select:none;margin-bottom:20px;pointer-events:auto;position:relative";
     var sHeader = "padding:15px 20px;border-bottom:1px solid #e0e0e0;font-size:18px;font-weight:600;color:#333;cursor:grab;display:flex;justify-content:space-between;align-items:center";
     var sContent = "padding:20px;flex:1;color:#666;font-size:14px;line-height:1.6;overflow-y:auto";
     var sGroupHeader = "margin:20px 0 10px;font-size:16px;font-weight:bold;color:#1d4ed8;border-bottom:2px solid #1d4ed8;padding-bottom:4px";
@@ -42,6 +42,7 @@
     var sBtnCancel = "padding:8px 16px;border:1px solid #ccc;background:white;border-radius:4px;cursor:pointer;font-size:14px;color:#333";
     var sBtnGenerate = "padding:8px 16px;border:none;background:#2563eb;color:white;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500";
     var sTagContainer = "display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px";
+    var sLoading = "position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.8);display:flex;justify-content:center;align-items:center;z-index:10;font-size:14px;color:#666;font-weight:500;flex-direction:column;gap:10px";
 
     var createElement = function(tag, css) {
         var el = document.createElement(tag);
@@ -255,6 +256,19 @@
     overlay.id = "qa-modal-overlay";
     var modal = createElement("div", sModal);
 
+    var loader = createElement("div", sLoading);
+    loader.innerHTML = "<div>Loading Form...</div>";
+    loader.style.display = "none";
+    modal.appendChild(loader);
+
+    var showLoading = function(msg) {
+        if(msg) loader.innerHTML = "<div>" + msg + "</div>";
+        loader.style.display = "flex";
+    };
+    var hideLoading = function() {
+        loader.style.display = "none";
+    };
+
     var isDragging = false, startX = 0, startY = 0, initialX = 0, initialY = 0;
     var header = createElement("div", sHeader);
     header.innerHTML = "<span>QA Form Tool</span>";
@@ -287,8 +301,20 @@
 
     var fInteractionId = createCompactField("Interaction ID", "🆔", "text", false, false, getInteractionId());
     var fAdvocateName = createCompactField("Advocate Name", "👤", "text", false, false, getAdvocateName());
+    
+    // Default ANI/DNIS logic: prefer second option (ANI) if available
     var aniOpts = getAniDnisOptions();
-    var fCallAni = createCompactField("Call ANI/DNIS", "📞", "text", false, false, "", aniOpts);
+    var defaultAni = (aniOpts.length > 1) ? aniOpts[1] : (aniOpts[0] || "");
+    var fCallAni = createCompactField("Call ANI/DNIS", "📞", "text", false, false, defaultAni, aniOpts);
+    // If we have options but no initial value set (e.g. empty defaultAni), try setting value
+    if(!defaultAni && aniOpts.length > 0) {
+        if(fCallAni.input.tagName === 'SELECT') fCallAni.input.value = aniOpts[0];
+        else fCallAni.input.value = aniOpts[0];
+    }
+    // Explicitly set the value if it's a select dropdown to ensure it picks the right one
+    if (fCallAni.input.tagName === 'SELECT' && defaultAni) {
+        fCallAni.input.value = defaultAni;
+    }
 
     headerFieldsContainer.appendChild(fInteractionId.div);
     headerFieldsContainer.appendChild(fAdvocateName.div);
@@ -495,10 +521,9 @@
                             b.style.opacity = "1";
                             b.style.cursor = "pointer";
                         });
-                        alert("✓ Generated and Saved!");
-                        overlay.remove();
+                        showToast("Generated and Saved!", false);
                     }).catch(function(e){
-                        alert("Generated, but save failed: " + e.message);
+                        showToast("Generated, but save failed: " + e.message, true);
                         activeBtn.textContent = originalText;
                         [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel].forEach(function(b){
                             b.disabled = false;
@@ -512,8 +537,7 @@
                         b.style.opacity = "1";
                         b.style.cursor = "pointer";
                     });
-                    alert("✓ Generated!");
-                    overlay.remove();
+                    showToast("Generated successfully!", false);
                 }
                 return;
             }
@@ -588,6 +612,7 @@
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
+    showLoading("Loading Form...");
     // Fetch and render form
     fetch(API_BASE_URL + '/api/embed/form/' + FORM_ID)
         .then(function(response) {
@@ -842,5 +867,7 @@
         }).catch(function(err){
             console.error(err);
             showToast("Error loading form structure", true);
+        }).finally(function() {
+            hideLoading();
         });
 })();
