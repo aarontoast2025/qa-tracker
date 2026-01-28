@@ -3,8 +3,14 @@
     console.log("QA Tool: Initializing...");
 
     var API_BASE_URL = 'https://qa-tracker-toast.vercel.app';
-    // Check if we should use local API (useful for development)
-    if (window.QA_TOOL_LOCAL) API_BASE_URL = 'http://localhost:3000';
+    // Only use local API if explicitly requested OR if we are running on a local development environment
+    var isLocal = window.QA_TOOL_LOCAL === true || 
+                 window.location.hostname === 'localhost' || 
+                 window.location.hostname === '127.0.0.1';
+                 
+    if (isLocal && !window.QA_FORCE_PROD) {
+        API_BASE_URL = 'http://localhost:3000';
+    }
     
     var FORM_ID = 'afb48a57-c3d3-47c7-a0fe-555db55f3b7b';
 
