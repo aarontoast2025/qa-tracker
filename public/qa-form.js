@@ -592,7 +592,7 @@
                             index++;
                             processNext();
                         }, 500);
-                    }, 2500);
+                    }, 1500);
                     return;
                 }
             }
