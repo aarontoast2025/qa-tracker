@@ -1,19 +1,17 @@
 import { NextResponse } from 'next/server';
 
-export async function POST(req: Request) {
-  try {
-    const { transcript } = await req.json();
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
 
-    if (!transcript) {
-      return NextResponse.json({ error: 'Transcript is required' }, { status: 400 });
-    }
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'Gemini API key is not configured' }, { status: 500 });
-    }
+// ============================================================================
+// SUMMARY PROMPT TEMPLATE
+// ============================================================================
 
-    const prompt = `Summarize the following transcript in one concise paragraph.
+const SUMMARY_PROMPT_TEMPLATE = (transcript: string) => `Summarize the following transcript in one concise paragraph.
 Identify the customer's concern and how the specialist resolved it.
 Do not use names, use 'customer' and 'Specialist' instead.
 Do not use em-dashes. Specify the dates, amounts, and other relevant details as mentioned.
@@ -23,29 +21,78 @@ The summary should start not from the confirmation of the details of the custome
 Transcript:
 ${transcript}`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+// ============================================================================
+// API ROUTE HANDLER
+// ============================================================================
+
+export async function POST(req: Request) {
+  try {
+    const { transcript } = await req.json();
+
+    // Validate input
+    if (!transcript || typeof transcript !== 'string' || transcript.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Valid transcript is required' }, 
+        { status: 400 }
+      );
+    }
+
+    // Check API key
+    if (!GEMINI_API_KEY) {
+      console.error('Gemini API key is not configured');
+      return NextResponse.json(
+        { error: 'Gemini API key is not configured' }, 
+        { status: 500 }
+      );
+    }
+
+    // Generate the prompt
+    const prompt = SUMMARY_PROMPT_TEMPLATE(transcript);
+
+    // Call Gemini API
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
+        contents: [{ 
+          parts: [{ text: prompt }] 
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 500,
+        }
       })
     });
 
     if (!response.ok) {
       const errData = await response.json();
-      return NextResponse.json({ error: errData.error?.message || 'Gemini API error' }, { status: response.status });
+      console.error('Gemini API error:', errData);
+      return NextResponse.json(
+        { error: errData.error?.message || 'Gemini API error' }, 
+        { status: response.status }
+      );
     }
 
     const data = await response.json();
     const summary = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!summary) {
-      return NextResponse.json({ error: 'Failed to generate summary' }, { status: 500 });
+      console.error('No summary generated from Gemini response:', data);
+      return NextResponse.json(
+        { error: 'Failed to generate summary' }, 
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ summary });
+    return NextResponse.json({ summary: summary.trim() });
+    
   } catch (error: any) {
     console.error('Summarization error:', error);
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' }, 
+      { status: 500 }
+    );
   }
 }
