@@ -520,16 +520,19 @@
         var processNext = function() {
             if(index >= targetKeys.length) {
                 if(saveToDb) {
-                    saveRecord().then(function(){
-                        activeBtn.textContent = originalText;
-                        [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel].forEach(function(b){
-                            b.disabled = false;
-                            b.style.opacity = "1";
-                            b.style.cursor = "pointer";
-                        });
-                        showToast("Generated and Saved!", false);
-                    }).catch(function(e){
-                        showToast("Generated, but save failed: " + e.message, true);
+                                            saveRecord().then(function(){
+                                                activeBtn.textContent = originalText;
+                                                [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel].forEach(function(b){
+                                                    b.disabled = false;
+                                                    b.style.opacity = "1";
+                                                    b.style.cursor = "pointer";
+                                                });
+                                                showToast("Generated and Saved!", false);
+                                                // Close the modal after a short delay if it was a Generate & Save action
+                                                setTimeout(function() {
+                                                    overlay.remove();
+                                                }, 1500);
+                                            }).catch(function(e){                        showToast("Generated, but save failed: " + e.message, true);
                         activeBtn.textContent = originalText;
                         [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel].forEach(function(b){
                             b.disabled = false;
