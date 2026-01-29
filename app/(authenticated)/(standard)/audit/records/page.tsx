@@ -162,6 +162,23 @@ export default function AuditRecordsPage() {
         }
     };
 
+    const handleToggleAudited = async (id: string, currentStatus: boolean) => {
+        const supabase = createClient();
+        const newStatus = !currentStatus;
+        
+        const { error } = await supabase
+            .from('audit_evaluations')
+            .update({ is_audited: newStatus })
+            .eq('id', id);
+
+        if (error) {
+            toast.error("Failed to update status: " + error.message);
+        } else {
+            setRecords(prev => prev.map(r => r.id === id ? { ...r, is_audited: newStatus } : r));
+            toast.success(newStatus ? "Marked as audited" : "Marked as pending");
+        }
+    };
+
     const confirmDelete = (id: string) => {
         setRecordToDelete(id);
         setIsDeleteDialogOpen(true);
@@ -442,6 +459,7 @@ export default function AuditRecordsPage() {
                             <TableHeader className="bg-gray-50/50">
                                 <TableRow>
                                     <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3">Submitted At / Elapsed</TableHead>
+                                    <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3 text-center">Status</TableHead>
                                     <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3">Interaction Date</TableHead>
                                     <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3">Advocate</TableHead>
                                     <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3">Interaction ID</TableHead>
@@ -453,13 +471,13 @@ export default function AuditRecordsPage() {
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">
+                                        <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
                                             Loading records...
                                         </TableCell>
                                     </TableRow>
                                 ) : records.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">
+                                        <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
                                             No records found for this period.
                                         </TableCell>
                                     </TableRow>
@@ -471,6 +489,25 @@ export default function AuditRecordsPage() {
                                                     <span className="text-sm font-medium">{format(new Date(record.created_at), 'MMM d, h:mm a')}</span>
                                                     <ElapsedTime submittedAt={record.created_at} isCompleted={record.qa_score !== null && record.qa_score !== undefined} />
                                                 </div>
+                                            </TableCell>
+                                            <TableCell className="py-3 text-center">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className={cn(
+                                                        "h-8 w-8 transition-all duration-200",
+                                                        record.is_audited ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-gray-300 hover:text-gray-400"
+                                                    )}
+                                                    onClick={() => handleToggleAudited(record.id, record.is_audited)}
+                                                    title={record.is_audited ? "Mark as Pending" : "Mark as Audited"}
+                                                >
+                                                    <CheckCircle2 className={cn(
+                                                        "h-5 w-5 transition-all duration-200",
+                                                        record.is_audited 
+                                                            ? "text-green-600 fill-green-100" 
+                                                            : "text-gray-200 hover:text-gray-300"
+                                                    )} />
+                                                </Button>
                                             </TableCell>
                                             <TableCell className="py-3">
                                                 <span className="text-sm">
