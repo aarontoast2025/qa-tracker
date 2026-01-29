@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Tag as TagIcon, MessageSquare, Check } from "lucide-react";
+import { Tag as TagIcon, MessageSquare, Check, Link as LinkIcon } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -34,6 +34,7 @@ interface TagModalProps {
 export function TagModal({ isOpen, onClose, optionId, tag, formId, onSave, options = [] }: TagModalProps) {
   const [label, setLabel] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [source, setSource] = useState("");
   const [selectedOptionId, setSelectedOptionId] = useState(optionId);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -41,10 +42,12 @@ export function TagModal({ isOpen, onClose, optionId, tag, formId, onSave, optio
     if (tag) {
       setLabel(tag.tag_label || "");
       setFeedback(tag.feedback_text || "");
+      setSource(tag.source || "");
       setSelectedOptionId(tag.option_id || optionId);
     } else {
       setLabel("");
       setFeedback("");
+      setSource("");
       setSelectedOptionId(optionId);
     }
   }, [tag, isOpen, optionId]);
@@ -58,7 +61,8 @@ export function TagModal({ isOpen, onClose, optionId, tag, formId, onSave, optio
         id: tag?.id,
         option_id: selectedOptionId,
         tag_label: label,
-        feedback_text: feedback
+        feedback_text: feedback,
+        source: source
       }, formId);
       onClose();
     } catch (error) {
@@ -77,35 +81,50 @@ export function TagModal({ isOpen, onClose, optionId, tag, formId, onSave, optio
             {tag ? "Edit Targeted Tag" : "Add Targeted Tag"}
           </DialogTitle>
         </DialogHeader>
-        <div className="grid gap-6 py-4">
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Trigger Option
-            </Label>
-            <Select value={selectedOptionId} onValueChange={setSelectedOptionId}>
-                <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select trigger option..." />
-                </SelectTrigger>
-                <SelectContent>
-                    {options.map((opt) => (
-                        <SelectItem key={opt.id} value={opt.id}>
-                            {opt.label} {opt.is_correct ? "(Good)" : "(Bad)"}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+        <div className="grid gap-5 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Trigger Option
+                </Label>
+                <Select value={selectedOptionId} onValueChange={setSelectedOptionId}>
+                    <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select trigger..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {options.map((opt) => (
+                            <SelectItem key={opt.id} value={opt.id}>
+                                {opt.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="tag-label" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Tag Label
+                </Label>
+                <Input
+                id="tag-label"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder='e.g., "Polite"'
+                className="w-full"
+                />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tag-label" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Tag Label
+            <Label htmlFor="tag-source" className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <LinkIcon className="h-3 w-3" /> Source / Reference
             </Label>
             <Input
-              id="tag-label"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder='e.g., "Polite Opening"'
-              className="col-span-3"
+              id="tag-source"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              placeholder="e.g. Wiki Article, SOP 1.2..."
+              className="w-full h-8 text-sm"
             />
           </div>
           
@@ -118,7 +137,7 @@ export function TagModal({ isOpen, onClose, optionId, tag, formId, onSave, optio
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
               placeholder="Enter the automated feedback text..."
-              className="col-span-3 min-h-[150px] resize-none leading-relaxed"
+              className="w-full min-h-[120px] resize-none leading-relaxed"
             />
           </div>
         </div>

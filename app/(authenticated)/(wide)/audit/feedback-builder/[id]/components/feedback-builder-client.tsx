@@ -13,7 +13,8 @@ import {
     ArrowLeft,
     Edit2,
     Check,
-    X
+    X,
+    Link as LinkIcon
 } from "lucide-react";
 import { 
     updateOptionFeedback, 
@@ -31,6 +32,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TagModal } from "./tag-modal";
 import { DeleteConfirmModal } from "./delete-confirm-modal";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 
 interface FeedbackBuilderClientProps {
   form: any;
@@ -48,6 +50,7 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
   // State for editing
   const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const [tempFeedback, setTempFeedback] = useState("");
+  const [tempSource, setTempSource] = useState("");
   const [tagModal, setTagModal] = useState<{ isOpen: boolean; optionId: string; tag?: any } | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; tagId: string } | null>(null);
 
@@ -76,11 +79,13 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
   const handleStartEditing = (option: any) => {
     setEditingOptionId(option.id);
     const feedback = option.feedback_general?.[0]?.feedback_text || "";
+    const source = option.feedback_general?.[0]?.source || "";
     setTempFeedback(feedback);
+    setTempSource(source);
   };
 
   const handleSaveFeedback = async (optionId: string) => {
-    await updateOptionFeedback(optionId, tempFeedback, form.id);
+    await updateOptionFeedback(optionId, tempFeedback, form.id, tempSource);
     setEditingOptionId(null);
   };
 
@@ -201,13 +206,25 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
                                 </div>
 
                                 {editingOptionId === option.id ? (
-                                    <div className="space-y-2">
-                                        <Textarea 
-                                            value={tempFeedback}
-                                            onChange={(e) => setTempFeedback(e.target.value)}
-                                            className="bg-white text-sm min-h-[100px] resize-none"
-                                            placeholder={`Write default feedback for "${option.label}"...`}
-                                        />
+                                    <div className="space-y-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] font-bold uppercase text-muted-foreground">Feedback Template</Label>
+                                            <Textarea 
+                                                value={tempFeedback}
+                                                onChange={(e) => setTempFeedback(e.target.value)}
+                                                className="bg-white text-sm min-h-[100px] resize-none"
+                                                placeholder={`Write default feedback for "${option.label}"...`}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] font-bold uppercase text-muted-foreground">Source</Label>
+                                            <Input 
+                                                value={tempSource}
+                                                onChange={(e) => setTempSource(e.target.value)}
+                                                className="bg-white h-8 text-xs"
+                                                placeholder="e.g. Wiki, SOP, KB Article..."
+                                            />
+                                        </div>
                                         <div className="flex justify-end gap-2">
                                             <Button size="sm" variant="ghost" onClick={() => setEditingOptionId(null)} className="h-7 gap-1">
                                                 <X className="h-3 w-3" /> Cancel
@@ -219,11 +236,19 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
                                     </div>
                                 ) : (
                                     <div 
-                                        className="text-sm text-muted-foreground italic leading-relaxed min-h-[60px] cursor-pointer hover:text-foreground transition-colors pr-8"
+                                        className="space-y-2 cursor-pointer group/item"
                                         onClick={() => handleStartEditing(option)}
                                     >
-                                        {(option.feedback_general && option.feedback_general[0]?.feedback_text) || `No default feedback defined for "${option.label}". Click to edit.`}
-                                        <Edit2 className="h-3 w-3 absolute right-4 top-[50px] opacity-0 group-hover:opacity-40" />
+                                        <div className="text-sm text-muted-foreground italic leading-relaxed min-h-[60px] pr-8 relative">
+                                            {(option.feedback_general && option.feedback_general[0]?.feedback_text) || `No default feedback defined for "${option.label}". Click to edit.`}
+                                            <Edit2 className="h-3 w-3 absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-40" />
+                                        </div>
+                                        {option.feedback_general?.[0]?.source && (
+                                            <div className="flex items-center gap-1.5 text-[10px] font-medium text-primary/60 bg-primary/5 w-fit px-2 py-0.5 rounded-md">
+                                                <LinkIcon className="h-3 w-3" />
+                                                Source: {option.feedback_general[0].source}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -262,10 +287,18 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
                                         </Badge>
                                     </div>
                                     
-                                    <div className="flex-1 space-y-1">
-                                        <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-none px-2 py-0 text-[10px] font-bold">
-                                            {tag.tag_label}
-                                        </Badge>
+                                    <div className="flex-1 space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-none px-2 py-0 text-[10px] font-bold">
+                                                {tag.tag_label}
+                                            </Badge>
+                                            {tag.source && (
+                                                <div className="flex items-center gap-1 text-[9px] font-medium text-primary/50 bg-primary/5 px-1.5 py-0.5 rounded">
+                                                    <LinkIcon className="h-2.5 w-2.5" />
+                                                    {tag.source}
+                                                </div>
+                                            )}
+                                        </div>
                                         <p className="text-sm text-muted-foreground leading-relaxed">{tag.feedback_text}</p>
                                     </div>
 

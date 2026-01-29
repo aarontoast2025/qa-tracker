@@ -84,13 +84,29 @@
         if(!s || !s.domTextarea) return;
         
         var txt = "";
+        var sources = [];
+
         if(s.selectedTags.length > 0) {
             txt = s.selectedTags.map(function(t){ return t.feedback_text; }).join(" ");
+            // Collect unique non-empty sources
+            s.selectedTags.forEach(function(t) {
+                if (t.source && t.source.trim() && sources.indexOf(t.source.trim()) === -1) {
+                    sources.push(t.source.trim());
+                }
+            });
         } else {
             var genFeedback = globalFeedbackGeneral.filter(function(f){ 
                 return f.option_id === s.sel; 
             })[0];
             txt = genFeedback ? genFeedback.feedback_text : "";
+            if (genFeedback && genFeedback.source && genFeedback.source.trim()) {
+                sources.push(genFeedback.source.trim());
+            }
+        }
+        
+        // Append sources if any
+        if (sources.length > 0) {
+            txt += "\n\nSource:\n" + sources.join("\n");
         }
         
         s.text = txt;

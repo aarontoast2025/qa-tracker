@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-export async function updateOptionFeedback(optionId: string, feedbackText: string, formId: string) {
+export async function updateOptionFeedback(optionId: string, feedbackText: string, formId: string, source: string = "") {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
@@ -14,7 +14,8 @@ export async function updateOptionFeedback(optionId: string, feedbackText: strin
     .upsert({ 
       option_id: optionId, 
       user_id: user.id,
-      feedback_text: feedbackText 
+      feedback_text: feedbackText,
+      source: source
     }, { 
       onConflict: 'option_id,user_id' 
     });
@@ -29,6 +30,7 @@ export async function saveItemTag(tag: {
   option_id: string;
   tag_label: string;
   feedback_text: string;
+  source?: string;
 }, formId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -41,7 +43,8 @@ export async function saveItemTag(tag: {
       .update({
         tag_label: tag.tag_label,
         feedback_text: tag.feedback_text,
-        option_id: tag.option_id
+        option_id: tag.option_id,
+        source: tag.source || ""
       })
       .eq('id', tag.id)
       .eq('user_id', user.id);
@@ -53,7 +56,8 @@ export async function saveItemTag(tag: {
         option_id: tag.option_id,
         user_id: user.id,
         tag_label: tag.tag_label,
-        feedback_text: tag.feedback_text
+        feedback_text: tag.feedback_text,
+        source: tag.source || ""
       });
     if (error) throw error;
   }
@@ -144,18 +148,18 @@ export async function getFormWithFeedback(formId: string) {
     const [generalRes, tagsRes] = await Promise.all([
         supabase
           .from('feedback_general')
-          .select('option_id, feedback_text')
+          .select('option_id, feedback_text, source')
           .in('option_id', optionIds)
           .eq('user_id', user.id),
         supabase
           .from('feedback_tags')
-          .select('id, option_id, tag_label, feedback_text')
+          .select('id, option_id, tag_label, feedback_text, source')
           .in('option_id', optionIds)
           .eq('user_id', user.id)
       ]);
 
       generalMap = (generalRes.data || []).reduce((acc: any, curr: any) => {
-        acc[curr.option_id] = curr.feedback_text;
+        acc[curr.option_id] = { feedback_text: curr.feedback_text, source: curr.source };
         return acc;
       }, {});
 
@@ -176,7 +180,7 @@ export async function getFormWithFeedback(formId: string) {
               question_text: item.label,
               tracker_audit_item_options: (item.form_item_options || []).map((option: any) => ({
                   ...option,
-                  feedback_general: generalMap[option.id] ? [{ feedback_text: generalMap[option.id] }] : [],
+                  feedback_general: generalMap[option.id] ? [generalMap[option.id]] : [],
                   feedback_tags: tagsMap[option.id] || []
               }))
           }))
