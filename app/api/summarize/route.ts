@@ -11,10 +11,10 @@ const GEMINI_MODEL = 'gemini-2.5-flash';
 // SUMMARY PROMPT TEMPLATE
 // ============================================================================
 
-const SUMMARY_PROMPT_TEMPLATE = (transcript: string) => `Summarize the following transcript in one concise paragraph.
+const SUMMARY_PROMPT_TEMPLATE = (transcript: string) => `Summarize the following transcript in one concise pargraph.
 Identify the customer's concern and how the specialist resolved it.
 Do not use names, use 'customer' and 'Specialist' instead.
-Do not use em-dashes. Specify the dates, amounts, and other relevant details as mentioned.
+Do not use em-dashes. Specify the dates, amounts, the error messages, and other relevant details as mentioned.
 Do not include the phone numbers, or company codes as well.
 The summary should start not from the confirmation of the details of the customers, but from the actual issue raised by the customer.
 
@@ -61,7 +61,6 @@ export async function POST(req: Request) {
         }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 500,
         }
       })
     });
