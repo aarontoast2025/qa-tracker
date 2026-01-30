@@ -24,8 +24,8 @@
     // Palette definitions are handled inside getColors
 
     // Styles
-    var sOverlay = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.2);display:flex;align-items:flex-start;justify-content:center;z-index:99999;font-family:system-ui,sans-serif;padding-top:20px;overflow-y:auto;pointer-events:none";
-    var sModal = "background:white;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);width:90%;max-width:550px;height:80vh;max-height:800px;overflow:hidden;display:flex;flex-direction:column;cursor:grab;user-select:none;margin-bottom:20px;pointer-events:auto;position:relative";
+    var sOverlay = "position:fixed;top:0;left:0;right:0;bottom:0;background:transparent;display:flex;align-items:flex-start;justify-content:center;z-index:99999;font-family:system-ui,sans-serif;padding-top:20px;overflow-y:auto;pointer-events:none";
+    var sModal = "background:white;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.2);width:90%;max-width:550px;height:80vh;max-height:800px;overflow:hidden;display:flex;flex-direction:column;cursor:grab;user-select:none;margin-bottom:20px;pointer-events:auto;position:relative";
     var sHeader = "padding:15px 20px;border-bottom:1px solid #e0e0e0;font-size:18px;font-weight:600;color:#333;cursor:grab;display:flex;justify-content:space-between;align-items:center";
     var sContent = "padding:20px;flex:1;color:#666;font-size:14px;line-height:1.6;overflow-y:auto";
     var sGroupHeader = "margin:20px 0 10px;font-size:16px;font-weight:bold;color:#1d4ed8;border-bottom:2px solid #1d4ed8;padding-bottom:4px";
@@ -332,8 +332,8 @@
     toolsMenu.style.cssText = "position:absolute; top:100%; right:0; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15); display:none; flex-direction:column; min-width:180px; z-index:100001; margin-top:5px";
 
     var showSettingsModal = function(title, featureKey, promptPlaceholder) {
-        var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:rgba(0,0,0,0.4)");
-        pOverlay.style.pointerEvents = "auto";
+        var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:transparent");
+        pOverlay.style.pointerEvents = "none";
         pOverlay.style.alignItems = "center"; 
         
         var pModal = createElement("div", sModal + "; height:auto; max-height:85vh; width:500px; cursor:default; user-select:auto; display:flex; flex-direction:column; overflow:visible");
@@ -454,8 +454,8 @@
     };
 
     var showDictionaryModal = function() {
-        var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:rgba(0,0,0,0.4)");
-        pOverlay.style.pointerEvents = "auto";
+        var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:transparent");
+        pOverlay.style.pointerEvents = "none";
         pOverlay.style.alignItems = "center"; 
         
         var pModal = createElement("div", sModal + "; height:70vh; max-height:600px; width:600px; cursor:default; user-select:auto; display:flex; flex-direction:column; overflow:visible");
@@ -593,8 +593,8 @@
     };
 
     var showCaseNotesCheckerModal = function() {
-        var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:rgba(0,0,0,0.4)");
-        pOverlay.style.pointerEvents = "auto";
+        var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:transparent");
+        pOverlay.style.pointerEvents = "none";
         pOverlay.style.alignItems = "center"; 
         
         var pModal = createElement("div", sModal + "; height:auto; max-height:85vh; width:600px; cursor:default; user-select:auto; display:flex; flex-direction:column; overflow:visible");
@@ -633,7 +633,7 @@
             
             container.appendChild(header);
             container.appendChild(body);
-            return container;
+            return { container: container, body: body };
         };
 
         // --- Input Section ---
@@ -657,19 +657,64 @@
         grpNotes.appendChild(txtNotes);
         divInputs.appendChild(grpNotes);
         
-        pBody.appendChild(createAccordion("Input Data", divInputs, true));
+        var inputAccordion = createAccordion("Input Data", divInputs, true);
+        pBody.appendChild(inputAccordion.container);
 
         // --- Output Section ---
         var divOutput = createElement("div");
-        divOutput.innerHTML = "<div style='color:#999; font-style:italic; padding:20px; text-align:center; background:#f9fafb; border-radius:4px; border:1px dashed #ccc'>Generated analysis will appear here...</div>";
+        divOutput.style.cssText = "max-height:400px; overflow-y:auto; font-family:inherit; font-size:13px; line-height:1.5; color:#333; padding-right:5px";
         
-        pBody.appendChild(createAccordion("Analysis Results", divOutput, true));
+        var resPlaceholder = createElement("div");
+        resPlaceholder.innerHTML = "<div style='color:#999; font-style:italic; padding:20px; text-align:center; background:#f9fafb; border-radius:4px; border:1px dashed #ccc'>Generated analysis will appear here...</div>";
+        divOutput.appendChild(resPlaceholder);
+        
+        var outputAccordion = createAccordion("Analysis Results", divOutput, true);
+        pBody.appendChild(outputAccordion.container);
 
         var pFooter = createElement("div", sFooter);
         var pBtnGen = createElement("button", sBtnGenerate);
         pBtnGen.textContent = "Generate";
+        
         addListener(pBtnGen, "click", function(){
-            showToast("Generating feature not implemented yet", false);
+            var transcript = extractTranscript();
+            var subject = inpSubject.value.trim();
+            var notes = txtNotes.value.trim();
+
+            if(!transcript) return showToast("No transcript found", true);
+            if(!subject) return showToast("Subject Line is required", true);
+            if(!notes) return showToast("Case Notes are required", true);
+
+            pBtnGen.disabled = true;
+            pBtnGen.textContent = "Generating... ⏳";
+            resPlaceholder.innerHTML = "<div style='padding:20px; text-align:center; color:#666'>🚀 AI is analyzing your notes...</div>";
+
+            // Collapse input accordion to show more output
+            inputAccordion.body.style.display = "none";
+            inputAccordion.container.firstChild.lastChild.textContent = "▼";
+
+            fetch(API_BASE_URL + '/api/case-notes-checker', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transcript: transcript, subject: subject, notes: notes })
+            })
+            .then(function(res){ return res.json(); })
+            .then(function(data){
+                if(data.result) {
+                    // Use pre-wrap to preserve formatting from AI
+                    resPlaceholder.innerHTML = "<div style='white-space:pre-wrap; padding:10px'>" + data.result + "</div>";
+                    showToast("Analysis complete!", false);
+                } else {
+                    throw new Error(data.error || "Analysis failed");
+                }
+            })
+            .catch(function(e){
+                showToast(e.message, true);
+                resPlaceholder.innerHTML = "<div style='color:#ef4444; padding:20px; text-align:center'>❌ Error: " + e.message + "</div>";
+            })
+            .finally(function(){
+                pBtnGen.disabled = false;
+                pBtnGen.textContent = "Generate";
+            });
         });
         
         pFooter.appendChild(pBtnGen);

@@ -89,7 +89,8 @@ export async function updateSession(request: NextRequest) {
   const isPublicApi = request.nextUrl.pathname.startsWith("/api/embed") || 
                      request.nextUrl.pathname.startsWith("/api/summarize") ||
                      request.nextUrl.pathname.startsWith("/api/ai-config") ||
-                     request.nextUrl.pathname.startsWith("/api/dictionary");
+                     request.nextUrl.pathname.startsWith("/api/dictionary") ||
+                     request.nextUrl.pathname.startsWith("/api/case-notes-checker");
   const isPublicFile = request.nextUrl.pathname === "/qa-form.js";
   
   if (
