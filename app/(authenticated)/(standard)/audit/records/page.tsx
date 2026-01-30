@@ -461,6 +461,7 @@ export default function AuditRecordsPage() {
                                     <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3">Submitted At / Elapsed</TableHead>
                                     <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3 text-center">Status</TableHead>
                                     <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3">Interaction Date</TableHead>
+                                    <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3">Evaluation Date</TableHead>
                                     <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3">Advocate</TableHead>
                                     <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3">Interaction ID</TableHead>
                                     <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3">Case #</TableHead>
@@ -471,13 +472,13 @@ export default function AuditRecordsPage() {
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
+                                        <TableCell colSpan={9} className="h-24 text-center text-sm text-muted-foreground">
                                             Loading records...
                                         </TableCell>
                                     </TableRow>
                                 ) : records.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
+                                        <TableCell colSpan={9} className="h-24 text-center text-sm text-muted-foreground">
                                             No records found for this period.
                                         </TableCell>
                                     </TableRow>
@@ -512,6 +513,11 @@ export default function AuditRecordsPage() {
                                             <TableCell className="py-3">
                                                 <span className="text-sm">
                                                     {record.date_interaction ? format(new Date(record.date_interaction), 'MMM d, yyyy') : '-'}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="py-3">
+                                                <span className="text-sm">
+                                                    {record.date_evaluation ? format(new Date(record.date_evaluation), 'MMM d, yyyy') : '-'}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="py-3">

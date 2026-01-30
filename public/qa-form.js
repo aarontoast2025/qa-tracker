@@ -287,10 +287,84 @@
 
     var isDragging = false, startX = 0, startY = 0, initialX = 0, initialY = 0;
     var header = createElement("div", sHeader);
-    header.innerHTML = "<span>QA Form Tool</span>";
+    var headerTitle = createElement("span");
+    headerTitle.textContent = "QA Form Tool";
+    header.appendChild(headerTitle);
+
+    // Tools Icon & Menu
+    var toolsContainer = createElement("div");
+    toolsContainer.style.cssText = "position:relative; display:flex; align-items:center";
+    
+    var btnTools = createElement("span");
+    btnTools.textContent = "🛠️";
+    btnTools.title = "Tools";
+    btnTools.style.cssText = "cursor:pointer; font-size:16px; padding:4px; border-radius:4px; transition:background 0.2s";
+    addListener(btnTools, "mouseenter", function(){ btnTools.style.background = "rgba(0,0,0,0.05)"; });
+    addListener(btnTools, "mouseleave", function(){ btnTools.style.background = "transparent"; });
+
+    var toolsMenu = createElement("div");
+    toolsMenu.style.cssText = "position:absolute; top:100%; right:0; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15); display:none; flex-direction:column; min-width:180px; z-index:100001; margin-top:5px";
+    
+    var createMenuItem = function(text, onClick) {
+        var item = createElement("div");
+        item.textContent = text;
+        item.style.cssText = "padding:10px 15px; cursor:pointer; font-size:13px; color:#333; border-bottom:1px solid #eee";
+        addListener(item, "mouseenter", function(){ item.style.background = "#f5f5f5"; });
+        addListener(item, "mouseleave", function(){ item.style.background = "transparent"; });
+        addListener(item, "click", function(e){
+            e.stopPropagation();
+            toolsMenu.style.display = "none";
+            onClick();
+        });
+        return item;
+    };
+
+    var showPromptModal = function() {
+        var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:rgba(0,0,0,0.4)");
+        pOverlay.style.pointerEvents = "auto";
+        var pModal = createElement("div", sModal + "; height:auto; max-height:400px; width:400px; padding:20px; cursor:default; user-select:auto");
+        
+        var pHeader = createElement("div", "font-weight:bold; font-size:16px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center");
+        pHeader.innerHTML = "<span>Issue/Concern Prompt</span>";
+        var pClose = createElement("span", "cursor:pointer; font-size:18px; color:#999");
+        pClose.textContent = "×";
+        addListener(pClose, "click", function(){ pOverlay.remove(); });
+        pHeader.appendChild(pClose);
+        
+        var pBody = createElement("div", "font-size:14px; color:#555; margin-bottom:20px");
+        pBody.textContent = "This is where you will manage your prompt settings.";
+
+        var pFooter = createElement("div", "display:flex; justify-content:flex-end");
+        var pBtnOk = createElement("button", sBtnGenerate);
+        pBtnOk.textContent = "Close";
+        addListener(pBtnOk, "click", function(){ pOverlay.remove(); });
+        pFooter.appendChild(pBtnOk);
+
+        pModal.appendChild(pHeader);
+        pModal.appendChild(pBody);
+        pModal.appendChild(pFooter);
+        pOverlay.appendChild(pModal);
+        document.body.appendChild(pOverlay);
+    };
+
+    toolsMenu.appendChild(createMenuItem("Issue/Concern Prompt", showPromptModal));
+    
+    addListener(btnTools, "click", function(e){
+        e.stopPropagation();
+        var isVisible = toolsMenu.style.display === "flex";
+        toolsMenu.style.display = isVisible ? "none" : "flex";
+    });
+
+    addListener(document, "click", function(){
+        toolsMenu.style.display = "none";
+    });
+
+    toolsContainer.appendChild(btnTools);
+    toolsContainer.appendChild(toolsMenu);
+    header.appendChild(toolsContainer);
 
     addListener(header, "mousedown", function(e){
-        if(e.target === header || e.target.parentNode === header) {
+        if(e.target === header || e.target.parentNode === header || e.target === headerTitle) {
             isDragging = true;
             startX = e.clientX - initialX;
             startY = e.clientY - initialY;
