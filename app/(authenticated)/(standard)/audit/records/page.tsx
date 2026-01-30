@@ -205,10 +205,18 @@ export default function AuditRecordsPage() {
     const formatDateMMDDYY = (dateStr: string) => {
         if (!dateStr) return "";
         try {
-            return format(new Date(dateStr), 'MM/dd/yy');
+            const date = new Date(dateStr);
+            // Adjust to UTC to avoid timezone shifts for pure date fields
+            const utcDate = new Date(date.valueOf() + date.getTimezoneOffset() * 60000);
+            return format(utcDate, 'MM/dd/yy');
         } catch (e) {
             return "";
         }
+    };
+
+    const toUtcDate = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return new Date(date.valueOf() + date.getTimezoneOffset() * 60000);
     };
 
     const copyToAnnotation = (record: any) => {
@@ -512,12 +520,12 @@ export default function AuditRecordsPage() {
                                             </TableCell>
                                             <TableCell className="py-3">
                                                 <span className="text-sm">
-                                                    {record.date_interaction ? format(new Date(record.date_interaction), 'MMM d, yyyy') : '-'}
+                                                    {record.date_interaction ? format(toUtcDate(record.date_interaction), 'MMM d, yyyy') : '-'}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="py-3">
                                                 <span className="text-sm">
-                                                    {record.date_evaluation ? format(new Date(record.date_evaluation), 'MMM d, yyyy') : '-'}
+                                                    {record.date_evaluation ? format(toUtcDate(record.date_evaluation), 'MMM d, yyyy') : '-'}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="py-3">
