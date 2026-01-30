@@ -1,12 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
-function addCorsHeaders(response: NextResponse) {
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-}
-
 export async function GET(request: Request) {
     try {
         const supabase = createAdminClient();
@@ -17,13 +11,9 @@ export async function GET(request: Request) {
 
         if (error) throw error;
 
-        const response = NextResponse.json({ success: true, data });
-        addCorsHeaders(response);
-        return response;
+        return NextResponse.json({ success: true, data });
     } catch (error: any) {
-        const response = NextResponse.json({ error: error.message }, { status: 500 });
-        addCorsHeaders(response);
-        return response;
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
@@ -47,14 +37,10 @@ export async function POST(request: Request) {
 
         if (error) throw error;
 
-        const response = NextResponse.json({ success: true, data });
-        addCorsHeaders(response);
-        return response;
+        return NextResponse.json({ success: true, data });
 
     } catch (error: any) {
-        const response = NextResponse.json({ error: error.message }, { status: 500 });
-        addCorsHeaders(response);
-        return response;
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
@@ -75,18 +61,12 @@ export async function DELETE(request: Request) {
 
         if (error) throw error;
 
-        const response = NextResponse.json({ success: true });
-        addCorsHeaders(response);
-        return response;
+        return NextResponse.json({ success: true });
     } catch (error: any) {
-        const response = NextResponse.json({ error: error.message }, { status: 500 });
-        addCorsHeaders(response);
-        return response;
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
 export async function OPTIONS() {
-  const response = new NextResponse(null, { status: 204 });
-  addCorsHeaders(response);
-  return response;
+  return new NextResponse(null, { status: 204 });
 }

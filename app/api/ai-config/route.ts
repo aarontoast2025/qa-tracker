@@ -26,15 +26,11 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
-    const response = NextResponse.json({ success: true, data });
-    addCorsHeaders(response);
-    return response;
+    return NextResponse.json({ success: true, data });
 
   } catch (error: any) {
     console.error("Config save error:", error);
-    const response = NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
-    addCorsHeaders(response);
-    return response;
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -57,25 +53,13 @@ export async function GET(request: Request) {
         
         if (error) throw error;
 
-        const response = NextResponse.json({ success: true, data });
-        addCorsHeaders(response);
-        return response;
+        return NextResponse.json({ success: true, data });
     } catch (error: any) {
         console.error("Config fetch error:", error);
-        const response = NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
-        addCorsHeaders(response);
-        return response;
+        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
     }
 }
 
 export async function OPTIONS() {
-  const response = new NextResponse(null, { status: 204 });
-  addCorsHeaders(response);
-  return response;
-}
-
-function addCorsHeaders(response: NextResponse) {
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return new NextResponse(null, { status: 204 });
 }

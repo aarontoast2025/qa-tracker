@@ -95,20 +95,9 @@ export async function GET(
     return NextResponse.json({ error: "Form not found" }, { status: 404 });
   }
 
-  const response = NextResponse.json(result);
-
-  // CORS Headers
-  response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  return response;
+  return NextResponse.json(result);
 }
 
 export async function OPTIONS() {
-  const response = new NextResponse(null, { status: 204 });
-  response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return response;
+  return new NextResponse(null, { status: 204 });
 }

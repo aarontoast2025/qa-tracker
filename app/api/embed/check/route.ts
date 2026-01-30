@@ -29,9 +29,7 @@ export async function GET(request: Request) {
     }
 
     if (!submission) {
-      const response = NextResponse.json({ data: null });
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      return response;
+      return NextResponse.json({ data: null });
     }
 
     // Map new table fields to old structure expected by frontend
@@ -43,26 +41,13 @@ export async function GET(request: Request) {
       items: submission.form_data || []
     };
 
-    const response = NextResponse.json({ data: mappedSubmission });
-    
-    // CORS
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-    return response;
+    return NextResponse.json({ data: mappedSubmission });
   } catch (error: any) {
     console.error("Check existing API error:", error);
-    const response = NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }
 
 export async function OPTIONS() {
-  const response = new NextResponse(null, { status: 204 });
-  response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return response;
+  return new NextResponse(null, { status: 204 });
 }

@@ -73,27 +73,14 @@ export async function POST(request: Request) {
 
     // No need to insert separate items anymore
 
-    const response = NextResponse.json({ success: true, submission_id: submissionId });
-    
-    // CORS
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-    return response;
+    return NextResponse.json({ success: true, submission_id: submissionId });
 
   } catch (error: any) {
     console.error("Submission error:", error);
-    const response = NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }
 
 export async function OPTIONS() {
-  const response = new NextResponse(null, { status: 204 });
-  response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return response;
+  return new NextResponse(null, { status: 204 });
 }
