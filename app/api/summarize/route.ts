@@ -1,17 +1,18 @@
 import { NextResponse } from 'next/server';
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // ============================================================================
-// CONFIGURATION
+// CONFIGURATION DEFAULTS
 // ============================================================================
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 
 // ============================================================================
-// SUMMARY PROMPT TEMPLATE
+// DEFAULT SUMMARY PROMPT TEMPLATE
 // ============================================================================
 
-const SUMMARY_PROMPT_TEMPLATE = (transcript: string) => `Summarize the following transcript in one concise pargraph.
+const DEFAULT_SUMMARY_PROMPT_TEMPLATE = (transcript: string) => `Summarize the following transcript in one concise pargraph.
 Identify the customer's concern and how the specialist resolved it.
 Do not use names, use 'customer' and 'Specialist' instead.
 Do not use em-dashes. Specify the dates, amounts, the error messages, and other relevant details as mentioned.
@@ -46,11 +47,47 @@ export async function POST(req: Request) {
       );
     }
 
+    // Fetch Configuration from DB
+    const supabase = createAdminClient();
+    const { data: config } = await supabase
+        .from('ai_features_config')
+        .select('*')
+        .eq('feature_key', 'summary')
+        .maybeSingle();
+    
+    // Fetch Dictionary Terms
+    const { data: terms } = await supabase
+        .from('ai_dictionary_terms')
+        .select('term, definition');
+
+    const model = config?.model_name || DEFAULT_GEMINI_MODEL;
+    const template = config?.prompt_template || null;
+
+    // Build Dictionary Context
+    let dictionaryContext = "";
+    if (terms && terms.length > 0) {
+        dictionaryContext = "GLOSSARY / CONTEXT DEFINITIONS:\n" + 
+            terms.map((t: any) => `- ${t.term}: ${t.definition || '(no definition)'}`).join("\n");
+    }
+
     // Generate the prompt
-    const prompt = SUMMARY_PROMPT_TEMPLATE(transcript);
+    let prompt;
+    if (template) {
+        if (template.includes('{{transcript}}') || template.includes('{{TRANSCRIPT}}')) {
+             prompt = template.replace(/\{\{transcript\}\}/ig, transcript);
+             if (dictionaryContext) {
+                 prompt = `Use the following glossary to understand specific terms or correct transcript errors:\n${dictionaryContext}\n\n${prompt}`;
+             }
+        } else {
+             // Fallback: Append it
+             prompt = `${template}\n\n${dictionaryContext ? dictionaryContext + "\n\n" : ""}Transcript:\n${transcript}`;
+        }
+    } else {
+        prompt = `${dictionaryContext ? "Use the following glossary to understand specific terms or correct transcript errors:\n" + dictionaryContext + "\n\n" : ""}${DEFAULT_SUMMARY_PROMPT_TEMPLATE(transcript)}`;
+    }
 
     // Call Gemini API
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
     
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -60,7 +97,7 @@ export async function POST(req: Request) {
           parts: [{ text: prompt }] 
         }],
         generationConfig: {
-          temperature: 0.7,
+          temperature: config?.temperature ?? 0.7,
         }
       })
     });

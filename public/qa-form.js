@@ -293,19 +293,9 @@
 
     // Tools Icon & Menu
     var toolsContainer = createElement("div");
-    toolsContainer.style.cssText = "position:relative; display:flex; align-items:center";
+    toolsContainer.style.cssText = "position:relative; display:flex; align-items:center; gap: 8px";
     
-    var btnTools = createElement("span");
-    btnTools.textContent = "🛠️";
-    btnTools.title = "Tools";
-    btnTools.style.cssText = "cursor:pointer; font-size:16px; padding:4px; border-radius:4px; transition:background 0.2s";
-    addListener(btnTools, "mouseenter", function(){ btnTools.style.background = "rgba(0,0,0,0.05)"; });
-    addListener(btnTools, "mouseleave", function(){ btnTools.style.background = "transparent"; });
-
-    var toolsMenu = createElement("div");
-    toolsMenu.style.cssText = "position:absolute; top:100%; right:0; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15); display:none; flex-direction:column; min-width:180px; z-index:100001; margin-top:5px";
-    
-    var createMenuItem = function(text, onClick) {
+    var createMenuItem = function(text, onClick, parentMenu) {
         var item = createElement("div");
         item.textContent = text;
         item.style.cssText = "padding:10px 15px; cursor:pointer; font-size:13px; color:#333; border-bottom:1px solid #eee";
@@ -313,52 +303,439 @@
         addListener(item, "mouseleave", function(){ item.style.background = "transparent"; });
         addListener(item, "click", function(e){
             e.stopPropagation();
-            toolsMenu.style.display = "none";
+            if(parentMenu) parentMenu.style.display = "none";
             onClick();
         });
         return item;
     };
 
-    var showPromptModal = function() {
+    // --- AI Tools Button ---
+    var btnAiTools = createElement("span");
+    btnAiTools.textContent = "🛠️";
+    btnAiTools.title = "Tools";
+    btnAiTools.style.cssText = "cursor:pointer; font-size:16px; padding:4px; border-radius:4px; transition:background 0.2s";
+    addListener(btnAiTools, "mouseenter", function(){ btnAiTools.style.background = "rgba(0,0,0,0.05)"; });
+    addListener(btnAiTools, "mouseleave", function(){ btnAiTools.style.background = "transparent"; });
+
+    var aiToolsMenu = createElement("div");
+    aiToolsMenu.style.cssText = "position:absolute; top:100%; right:30px; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15); display:none; flex-direction:column; min-width:180px; z-index:100001; margin-top:5px";
+
+    // --- Settings Button ---
+    var btnTools = createElement("span");
+    btnTools.textContent = "⚙️";
+    btnTools.title = "Settings";
+    btnTools.style.cssText = "cursor:pointer; font-size:16px; padding:4px; border-radius:4px; transition:background 0.2s";
+    addListener(btnTools, "mouseenter", function(){ btnTools.style.background = "rgba(0,0,0,0.05)"; });
+    addListener(btnTools, "mouseleave", function(){ btnTools.style.background = "transparent"; });
+
+    var toolsMenu = createElement("div");
+    toolsMenu.style.cssText = "position:absolute; top:100%; right:0; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15); display:none; flex-direction:column; min-width:180px; z-index:100001; margin-top:5px";
+
+    var showSettingsModal = function(title, featureKey, promptPlaceholder) {
         var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:rgba(0,0,0,0.4)");
         pOverlay.style.pointerEvents = "auto";
-        var pModal = createElement("div", sModal + "; height:auto; max-height:400px; width:400px; padding:20px; cursor:default; user-select:auto");
+        pOverlay.style.alignItems = "center"; 
         
-        var pHeader = createElement("div", "font-weight:bold; font-size:16px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center");
-        pHeader.innerHTML = "<span>Issue/Concern Prompt</span>";
+        var pModal = createElement("div", sModal + "; height:auto; max-height:85vh; width:500px; cursor:default; user-select:auto; display:flex; flex-direction:column; overflow:visible");
+        
+        var pHeader = createElement("div", sHeader + "; cursor:move"); 
+        pHeader.innerHTML = "<span>" + title + "</span>";
         var pClose = createElement("span", "cursor:pointer; font-size:18px; color:#999");
         pClose.textContent = "×";
         addListener(pClose, "click", function(){ pOverlay.remove(); });
         pHeader.appendChild(pClose);
         
-        var pBody = createElement("div", "font-size:14px; color:#555; margin-bottom:20px");
-        pBody.textContent = "This is where you will manage your prompt settings.";
+        var pBody = createElement("div", "padding:20px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:15px");
+        
+        // Model Input
+        var grpModel = createElement("div");
+        var lblModel = createElement("label", sLabel);
+        lblModel.textContent = "Gemini Model (e.g. gemini-2.5-flash)";
+        var inpModel = createElement("input", sInput);
+        grpModel.appendChild(lblModel);
+        grpModel.appendChild(inpModel);
+        pBody.appendChild(grpModel);
 
-        var pFooter = createElement("div", "display:flex; justify-content:flex-end");
-        var pBtnOk = createElement("button", sBtnGenerate);
-        pBtnOk.textContent = "Close";
-        addListener(pBtnOk, "click", function(){ pOverlay.remove(); });
-        pFooter.appendChild(pBtnOk);
+        // Prompt Textarea
+        var grpPrompt = createElement("div");
+        var lblPrompt = createElement("label", sLabel);
+        lblPrompt.textContent = "Prompt Template";
+        var txtPrompt = createElement("textarea", sTextarea + "; height:200px");
+        txtPrompt.placeholder = promptPlaceholder;
+        grpPrompt.appendChild(lblPrompt);
+        grpPrompt.appendChild(txtPrompt);
+        pBody.appendChild(grpPrompt);
+
+        // Fetch existing config
+        inpModel.disabled = true;
+        txtPrompt.disabled = true;
+        fetch(API_BASE_URL + '/api/ai-config?feature_key=' + featureKey)
+            .then(function(res){ return res.json(); })
+            .then(function(data){
+                if(data.success && data.data) {
+                    inpModel.value = data.data.model_name || 'gemini-2.5-flash';
+                    txtPrompt.value = data.data.prompt_template || '';
+                } else {
+                     inpModel.value = 'gemini-2.5-flash';
+                }
+            })
+            .catch(function(e){ console.error(e); showToast("Failed to load settings", true); })
+            .finally(function(){
+                inpModel.disabled = false;
+                txtPrompt.disabled = false;
+            });
+
+        var pFooter = createElement("div", sFooter);
+        var pBtnSave = createElement("button", sBtnGenerate);
+        pBtnSave.textContent = "Save Configuration";
+        addListener(pBtnSave, "click", function(){
+            pBtnSave.disabled = true;
+            pBtnSave.textContent = "Saving...";
+            
+            fetch(API_BASE_URL + '/api/ai-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    feature_key: featureKey,
+                    model_name: inpModel.value,
+                    prompt_template: txtPrompt.value
+                })
+            })
+            .then(function(res){ return res.json(); })
+            .then(function(data){
+                if(data.success) {
+                    showToast("Settings saved!", false);
+                    setTimeout(function(){ pOverlay.remove(); }, 1000);
+                } else {
+                    throw new Error(data.error || "Save failed");
+                }
+            })
+            .catch(function(e){
+                showToast(e.message, true);
+                pBtnSave.disabled = false;
+                pBtnSave.textContent = "Save Configuration";
+            });
+        });
+        
+        pFooter.appendChild(pBtnSave);
 
         pModal.appendChild(pHeader);
         pModal.appendChild(pBody);
         pModal.appendChild(pFooter);
         pOverlay.appendChild(pModal);
         document.body.appendChild(pOverlay);
+
+        // Drag Logic for this modal
+        var isPDragging = false, pStartX = 0, pStartY = 0, pInitialX = 0, pInitialY = 0;
+        
+        addListener(pHeader, "mousedown", function(e){
+            if(e.target === pHeader || e.target.parentNode === pHeader || e.target.tagName === 'SPAN') {
+                if(e.target === pClose) return; 
+                isPDragging = true;
+                pStartX = e.clientX - pInitialX;
+                pStartY = e.clientY - pInitialY;
+                pHeader.style.cursor = "grabbing";
+            }
+        });
+
+        addListener(document, "mousemove", function(e){
+            if(isPDragging) {
+                e.preventDefault();
+                pInitialX = e.clientX - pStartX;
+                pInitialY = e.clientY - pStartY;
+                pModal.style.transform = "translate(" + pInitialX + "px, " + pInitialY + "px)";
+            }
+        });
+
+        addListener(document, "mouseup", function(){
+            isPDragging = false;
+            pHeader.style.cursor = "move";
+        });
     };
 
-    toolsMenu.appendChild(createMenuItem("Issue/Concern Prompt", showPromptModal));
+    var showDictionaryModal = function() {
+        var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:rgba(0,0,0,0.4)");
+        pOverlay.style.pointerEvents = "auto";
+        pOverlay.style.alignItems = "center"; 
+        
+        var pModal = createElement("div", sModal + "; height:70vh; max-height:600px; width:600px; cursor:default; user-select:auto; display:flex; flex-direction:column; overflow:visible");
+        
+        var pHeader = createElement("div", sHeader + "; cursor:move"); 
+        pHeader.innerHTML = "<span>Dictionary / Glossary</span>";
+        var pClose = createElement("span", "cursor:pointer; font-size:18px; color:#999");
+        pClose.textContent = "×";
+        addListener(pClose, "click", function(){ pOverlay.remove(); });
+        pHeader.appendChild(pClose);
+        
+        var pBody = createElement("div", "padding:20px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px");
+        
+        // Add New Term Section
+        var addContainer = createElement("div", "display:grid; grid-template-columns: 1fr 2fr auto; gap:10px; padding-bottom:15px; border-bottom:1px solid #eee; margin-bottom:10px");
+        var inpTerm = createElement("input", sInput);
+        inpTerm.placeholder = "Term (e.g. 'CSR')";
+        var inpDef = createElement("input", sInput);
+        inpDef.placeholder = "Definition (optional)";
+        var btnAdd = createElement("button", sBtnGenerate);
+        btnAdd.textContent = "Add";
+        btnAdd.style.padding = "8px 12px";
+        
+        addContainer.appendChild(inpTerm);
+        addContainer.appendChild(inpDef);
+        addContainer.appendChild(btnAdd);
+        pBody.appendChild(addContainer);
+
+        var listContainer = createElement("div", "display:flex; flex-direction:column; gap:8px");
+        pBody.appendChild(listContainer);
+
+        var loadTerms = function() {
+            listContainer.innerHTML = "Loading...";
+            fetch(API_BASE_URL + '/api/dictionary')
+                .then(function(res){ return res.json(); })
+                .then(function(data){
+                    listContainer.innerHTML = "";
+                    if(data.success && data.data) {
+                        if(data.data.length === 0) {
+                            listContainer.innerHTML = "<div style='color:#999;font-style:italic;text-align:center'>No terms defined yet.</div>";
+                        }
+                        data.data.forEach(function(item){
+                            var row = createElement("div", "display:grid; grid-template-columns: 1fr 2fr auto; gap:10px; align-items:center; padding:8px; background:#f9fafb; border-radius:4px; border:1px solid #eee");
+                            
+                            var termSpan = createElement("span", "font-weight:600; color:#333");
+                            termSpan.textContent = item.term;
+                            
+                            var defSpan = createElement("span", "color:#555; font-size:13px");
+                            defSpan.textContent = item.definition || "-";
+                            
+                            var delBtn = createElement("span", "cursor:pointer; color:#ef4444; font-size:16px; opacity:0.6");
+                            delBtn.textContent = "🗑️";
+                            delBtn.title = "Delete Term";
+                            addListener(delBtn, "mouseenter", function(){ delBtn.style.opacity = "1"; });
+                            addListener(delBtn, "mouseleave", function(){ delBtn.style.opacity = "0.6"; });
+                            
+                            addListener(delBtn, "click", function(){
+                                if(confirm("Delete '" + item.term + "'?")) {
+                                    fetch(API_BASE_URL + '/api/dictionary?id=' + item.id, { method: 'DELETE' })
+                                        .then(function(){ loadTerms(); })
+                                        .catch(function(e){ showToast("Delete failed", true); });
+                                }
+                            });
+
+                            row.appendChild(termSpan);
+                            row.appendChild(defSpan);
+                            row.appendChild(delBtn);
+                            listContainer.appendChild(row);
+                        });
+                    }
+                })
+                .catch(function(e){ listContainer.innerHTML = "Error loading terms."; });
+        };
+
+        addListener(btnAdd, "click", function(){
+            var term = inpTerm.value.trim();
+            var def = inpDef.value.trim();
+            if(!term) return;
+            
+            btnAdd.disabled = true;
+            btnAdd.textContent = "...";
+            
+            fetch(API_BASE_URL + '/api/dictionary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ term: term, definition: def })
+            })
+            .then(function(res){ return res.json(); })
+            .then(function(data){
+                if(data.success) {
+                    inpTerm.value = "";
+                    inpDef.value = "";
+                    loadTerms();
+                } else {
+                    showToast("Add failed: " + (data.error || "Unknown error"), true);
+                }
+            })
+            .catch(function(e){ showToast("Add failed", true); })
+            .finally(function(){ 
+                btnAdd.disabled = false; 
+                btnAdd.textContent = "Add";
+            });
+        });
+
+        loadTerms();
+
+        pModal.appendChild(pHeader);
+        pModal.appendChild(pBody);
+        pOverlay.appendChild(pModal);
+        document.body.appendChild(pOverlay);
+
+        // Drag Logic
+        var isDDragging = false, dStartX = 0, dStartY = 0, dInitialX = 0, dInitialY = 0;
+        addListener(pHeader, "mousedown", function(e){
+            if(e.target === pHeader || e.target.parentNode === pHeader || e.target.tagName === 'SPAN') {
+                if(e.target === pClose) return; 
+                isDDragging = true;
+                dStartX = e.clientX - dInitialX;
+                dStartY = e.clientY - dInitialY;
+                pHeader.style.cursor = "grabbing";
+            }
+        });
+        addListener(document, "mousemove", function(e){
+            if(isDDragging) {
+                e.preventDefault();
+                dInitialX = e.clientX - dStartX;
+                dInitialY = e.clientY - dStartY;
+                pModal.style.transform = "translate(" + dInitialX + "px, " + dInitialY + "px)";
+            }
+        });
+        addListener(document, "mouseup", function(){
+            isDDragging = false;
+            pHeader.style.cursor = "move";
+        });
+    };
+
+    var showCaseNotesCheckerModal = function() {
+        var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:rgba(0,0,0,0.4)");
+        pOverlay.style.pointerEvents = "auto";
+        pOverlay.style.alignItems = "center"; 
+        
+        var pModal = createElement("div", sModal + "; height:auto; max-height:85vh; width:600px; cursor:default; user-select:auto; display:flex; flex-direction:column; overflow:visible");
+        
+        var pHeader = createElement("div", sHeader + "; cursor:move"); 
+        pHeader.innerHTML = "<span>Case Notes Checker</span>";
+        var pClose = createElement("span", "cursor:pointer; font-size:18px; color:#999");
+        pClose.textContent = "×";
+        addListener(pClose, "click", function(){ pOverlay.remove(); });
+        pHeader.appendChild(pClose);
+        
+        var pBody = createElement("div", "padding:20px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:15px");
+        
+        var createAccordion = function(title, contentNodes, isOpen) {
+            var container = createElement("div");
+            container.style.cssText = "border:1px solid #e0e0e0; border-radius:4px; margin-bottom:10px; overflow:hidden";
+            
+            var header = createElement("div");
+            header.style.cssText = "padding:10px 15px; background:#f5f5f5; cursor:pointer; font-weight:600; display:flex; justify-content:space-between; align-items:center; user-select:none";
+            header.innerHTML = "<span>" + title + "</span><span style='font-size:12px'>" + (isOpen ? "▲" : "▼") + "</span>";
+            
+            var body = createElement("div");
+            body.style.cssText = "padding:15px; border-top:1px solid #e0e0e0; display:" + (isOpen ? "block" : "none");
+            
+            if(Array.isArray(contentNodes)) {
+                contentNodes.forEach(function(n) { body.appendChild(n); });
+            } else {
+                body.appendChild(contentNodes);
+            }
+            
+            addListener(header, "click", function() {
+                var isHidden = body.style.display === "none";
+                body.style.display = isHidden ? "block" : "none";
+                header.lastChild.textContent = isHidden ? "▲" : "▼";
+            });
+            
+            container.appendChild(header);
+            container.appendChild(body);
+            return container;
+        };
+
+        // --- Input Section ---
+        var divInputs = createElement("div", "display:flex; flex-direction:column; gap:15px");
+        
+        var grpSubject = createElement("div");
+        var lblSubject = createElement("label", sLabel);
+        lblSubject.textContent = "Subject Line";
+        var inpSubject = createElement("input", sInput);
+        inpSubject.placeholder = "Enter Subject Line...";
+        grpSubject.appendChild(lblSubject);
+        grpSubject.appendChild(inpSubject);
+        divInputs.appendChild(grpSubject);
+
+        var grpNotes = createElement("div");
+        var lblNotes = createElement("label", sLabel);
+        lblNotes.textContent = "Case Notes";
+        var txtNotes = createElement("textarea", sTextarea + "; height:200px");
+        txtNotes.placeholder = "Paste Case Notes here...";
+        grpNotes.appendChild(lblNotes);
+        grpNotes.appendChild(txtNotes);
+        divInputs.appendChild(grpNotes);
+        
+        pBody.appendChild(createAccordion("Input Data", divInputs, true));
+
+        // --- Output Section ---
+        var divOutput = createElement("div");
+        divOutput.innerHTML = "<div style='color:#999; font-style:italic; padding:20px; text-align:center; background:#f9fafb; border-radius:4px; border:1px dashed #ccc'>Generated analysis will appear here...</div>";
+        
+        pBody.appendChild(createAccordion("Analysis Results", divOutput, true));
+
+        var pFooter = createElement("div", sFooter);
+        var pBtnGen = createElement("button", sBtnGenerate);
+        pBtnGen.textContent = "Generate";
+        addListener(pBtnGen, "click", function(){
+            showToast("Generating feature not implemented yet", false);
+        });
+        
+        pFooter.appendChild(pBtnGen);
+
+        pModal.appendChild(pHeader);
+        pModal.appendChild(pBody);
+        pModal.appendChild(pFooter);
+        pOverlay.appendChild(pModal);
+        document.body.appendChild(pOverlay);
+
+        // Drag Logic
+        var isCDragging = false, cStartX = 0, cStartY = 0, cInitialX = 0, cInitialY = 0;
+        addListener(pHeader, "mousedown", function(e){
+            if(e.target === pHeader || e.target.parentNode === pHeader || e.target.tagName === 'SPAN') {
+                if(e.target === pClose) return; 
+                isCDragging = true;
+                cStartX = e.clientX - cInitialX;
+                cStartY = e.clientY - cInitialY;
+                pHeader.style.cursor = "grabbing";
+            }
+        });
+        addListener(document, "mousemove", function(e){
+            if(isCDragging) {
+                e.preventDefault();
+                cInitialX = e.clientX - cStartX;
+                cInitialY = e.clientY - cStartY;
+                pModal.style.transform = "translate(" + cInitialX + "px, " + cInitialY + "px)";
+            }
+        });
+        addListener(document, "mouseup", function(){
+            isCDragging = false;
+            pHeader.style.cursor = "move";
+        });
+    };
+
+    aiToolsMenu.appendChild(createMenuItem("Case Notes Checker", showCaseNotesCheckerModal, aiToolsMenu));
+
+    toolsMenu.appendChild(createMenuItem("Issue/Concern Prompt", function() {
+        showSettingsModal("Issue/Concern Prompt Settings", "summary", "Enter prompt template. Use {{transcript}} for the transcript placeholder.");
+    }, toolsMenu));
+    toolsMenu.appendChild(createMenuItem("Case Notes Prompt", function() {
+        showSettingsModal("Case Notes Prompt Settings", "case_notes", "Enter prompt template. Use {{subject}} and {{notes}} for placeholders.");
+    }, toolsMenu));
+    toolsMenu.appendChild(createMenuItem("Dictionary", showDictionaryModal, toolsMenu));
     
+    addListener(btnAiTools, "click", function(e){
+        e.stopPropagation();
+        var isVisible = aiToolsMenu.style.display === "flex";
+        aiToolsMenu.style.display = isVisible ? "none" : "flex";
+        toolsMenu.style.display = "none";
+    });
+
     addListener(btnTools, "click", function(e){
         e.stopPropagation();
         var isVisible = toolsMenu.style.display === "flex";
         toolsMenu.style.display = isVisible ? "none" : "flex";
+        aiToolsMenu.style.display = "none";
     });
 
     addListener(document, "click", function(){
         toolsMenu.style.display = "none";
+        aiToolsMenu.style.display = "none";
     });
 
+    toolsContainer.appendChild(btnAiTools);
+    toolsContainer.appendChild(aiToolsMenu);
     toolsContainer.appendChild(btnTools);
     toolsContainer.appendChild(toolsMenu);
     header.appendChild(toolsContainer);
