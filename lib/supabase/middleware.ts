@@ -87,7 +87,9 @@ export async function updateSession(request: NextRequest) {
   // Allow access to auth routes, embed APIs, and public scripts without authentication
   const isAuthRoute = request.nextUrl.pathname.startsWith("/auth");
   const isPublicApi = request.nextUrl.pathname.startsWith("/api/embed") || 
-                     request.nextUrl.pathname.startsWith("/api/summarize");
+                     request.nextUrl.pathname.startsWith("/api/summarize") ||
+                     request.nextUrl.pathname.startsWith("/api/ai-config") ||
+                     request.nextUrl.pathname.startsWith("/api/dictionary");
   const isPublicFile = request.nextUrl.pathname === "/qa-form.js";
   
   if (
