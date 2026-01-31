@@ -90,8 +90,13 @@
             txt = s.selectedTags.map(function(t){ return t.feedback_text; }).join(" ");
             // Collect unique non-empty sources
             s.selectedTags.forEach(function(t) {
-                if (t.source && t.source.trim() && sources.indexOf(t.source.trim()) === -1) {
-                    sources.push(t.source.trim());
+                if (t.source && t.source.trim()) {
+                    t.source.split(';').forEach(function(src) {
+                        var trimmed = src.trim();
+                        if (trimmed && sources.indexOf(trimmed) === -1) {
+                            sources.push(trimmed);
+                        }
+                    });
                 }
             });
         } else {
@@ -100,7 +105,12 @@
             })[0];
             txt = genFeedback ? genFeedback.feedback_text : "";
             if (genFeedback && genFeedback.source && genFeedback.source.trim()) {
-                sources.push(genFeedback.source.trim());
+                genFeedback.source.split(';').forEach(function(src) {
+                    var trimmed = src.trim();
+                    if (trimmed && sources.indexOf(trimmed) === -1) {
+                        sources.push(trimmed);
+                    }
+                });
             }
         }
         

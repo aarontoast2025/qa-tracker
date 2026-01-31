@@ -34,6 +34,12 @@ export default async function ProtectedLayout({
             </div>
             
             <div className="flex items-center gap-6">
+                <Link 
+                    href="/knowledge-base" 
+                    className="flex items-center gap-1 font-medium hover:text-primary transition-colors focus:outline-none"
+                >
+                    Knowledgebase
+                </Link>
                 <DropdownMenu>
                     <DropdownMenuTrigger className="flex items-center gap-1 font-medium hover:text-primary transition-colors focus:outline-none">
                         Audit <ChevronDown className="h-4 w-4 opacity-50" />

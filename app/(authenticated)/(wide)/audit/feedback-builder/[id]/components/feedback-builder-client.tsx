@@ -222,7 +222,7 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
                                                 value={tempSource}
                                                 onChange={(e) => setTempSource(e.target.value)}
                                                 className="bg-white h-8 text-xs"
-                                                placeholder="e.g. Wiki, SOP, KB Article..."
+                                                placeholder="Wiki; SOP; Article... (separate with ;)"
                                             />
                                         </div>
                                         <div className="flex justify-end gap-2">
@@ -244,9 +244,13 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
                                             <Edit2 className="h-3 w-3 absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-40" />
                                         </div>
                                         {option.feedback_general?.[0]?.source && (
-                                            <div className="flex items-center gap-1.5 text-[10px] font-medium text-primary/60 bg-primary/5 w-fit px-2 py-0.5 rounded-md">
-                                                <LinkIcon className="h-3 w-3" />
-                                                Source: {option.feedback_general[0].source}
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {option.feedback_general[0].source.split(';').map((s: string, idx: number) => s.trim() && (
+                                                    <div key={idx} className="flex items-center gap-1.5 text-[10px] font-medium text-primary/60 bg-primary/5 w-fit px-2 py-0.5 rounded-md">
+                                                        <LinkIcon className="h-3 w-3" />
+                                                        Source: {s.trim()}
+                                                    </div>
+                                                ))}
                                             </div>
                                         )}
                                     </div>
@@ -288,16 +292,16 @@ export function FeedbackBuilderClient({ form }: FeedbackBuilderClientProps) {
                                     </div>
                                     
                                     <div className="flex-1 space-y-2">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center flex-wrap gap-2">
                                             <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-none px-2 py-0 text-[10px] font-bold">
                                                 {tag.tag_label}
                                             </Badge>
-                                            {tag.source && (
-                                                <div className="flex items-center gap-1 text-[9px] font-medium text-primary/50 bg-primary/5 px-1.5 py-0.5 rounded">
+                                            {tag.source && tag.source.split(';').map((s: string, idx: number) => s.trim() && (
+                                                <div key={idx} className="flex items-center gap-1 text-[9px] font-medium text-primary/50 bg-primary/5 px-1.5 py-0.5 rounded">
                                                     <LinkIcon className="h-2.5 w-2.5" />
-                                                    {tag.source}
+                                                    {s.trim()}
                                                 </div>
-                                            )}
+                                            ))}
                                         </div>
                                         <p className="text-sm text-muted-foreground leading-relaxed">{tag.feedback_text}</p>
                                     </div>

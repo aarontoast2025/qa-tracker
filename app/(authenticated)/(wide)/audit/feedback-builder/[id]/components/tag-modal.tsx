@@ -123,7 +123,7 @@ export function TagModal({ isOpen, onClose, optionId, tag, formId, onSave, optio
               id="tag-source"
               value={source}
               onChange={(e) => setSource(e.target.value)}
-              placeholder="e.g. Wiki Article, SOP 1.2..."
+              placeholder="Wiki; SOP; Article... (separate with ;)"
               className="w-full h-8 text-sm"
             />
           </div>
