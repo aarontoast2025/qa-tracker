@@ -86,31 +86,37 @@
         var txt = "";
         var sources = [];
 
-        if(s.selectedTags.length > 0) {
-            txt = s.selectedTags.map(function(t){ return t.feedback_text; }).join(" ");
-            // Collect unique non-empty sources
-            s.selectedTags.forEach(function(t) {
-                if (t.source && t.source.trim()) {
-                    t.source.split(';').forEach(function(src) {
-                        var trimmed = src.trim();
-                        if (trimmed && sources.indexOf(trimmed) === -1) {
-                            sources.push(trimmed);
-                        }
-                    });
+        var cleanText = function(t) {
+            if (!t) return "";
+            // Remove "Source: ..." block from the end of the text if present
+            return t.replace(/\s*Source:[\s\S]*$/i, "").trim();
+        };
+
+        var addSource = function(srcStr) {
+            if (!srcStr) return;
+            // Split by semicolon OR comma
+            srcStr.split(/[;,]/).forEach(function(src) {
+                var trimmed = src.trim();
+                // Deduplicate
+                if (trimmed && sources.indexOf(trimmed) === -1) {
+                    sources.push(trimmed);
                 }
+            });
+        };
+
+        if(s.selectedTags.length > 0) {
+            txt = s.selectedTags.map(function(t){ return cleanText(t.feedback_text); }).join(" ");
+            s.selectedTags.forEach(function(t) {
+                addSource(t.source);
             });
         } else {
             var genFeedback = globalFeedbackGeneral.filter(function(f){ 
                 return f.option_id === s.sel; 
             })[0];
-            txt = genFeedback ? genFeedback.feedback_text : "";
-            if (genFeedback && genFeedback.source && genFeedback.source.trim()) {
-                genFeedback.source.split(';').forEach(function(src) {
-                    var trimmed = src.trim();
-                    if (trimmed && sources.indexOf(trimmed) === -1) {
-                        sources.push(trimmed);
-                    }
-                });
+            
+            if (genFeedback) {
+                txt = cleanText(genFeedback.feedback_text);
+                addSource(genFeedback.source);
             }
         }
         
