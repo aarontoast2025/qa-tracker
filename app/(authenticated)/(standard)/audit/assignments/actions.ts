@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { hasPermission } from "@/lib/supabase/permissions";
 import { Specialist, Assignment } from "./types";
-import { getRosterMetadata } from "@/app/(authenticated)/(wide)/roster/actions";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
 
 export async function getAssignmentData(
@@ -30,7 +29,7 @@ export async function getAssignmentData(
   // 1. Prepare Specialist Candidates Query
   let specialistQuery = supabase
     .from("roster_employees")
-    .select("id, first_name, last_name, eid, role, skill, channel, supervisor", { count: "exact" })
+    .select("id, first_name, last_name, eid, role, skill, channel, supervisor, status", { count: "exact" })
     .in("role", ["Agent", "SME"])
     .eq("status", "Active");
 
@@ -79,7 +78,7 @@ export async function getAssignmentData(
     .select(`
       *,
       qa:user_profiles(id, first_name, last_name, avatar_url),
-      specialist:roster_employees!inner(id, first_name, last_name, eid, role, skill, channel, supervisor),
+      specialist:roster_employees!inner(id, first_name, last_name, eid, role, skill, channel, supervisor, status),
       form:form_templates(title)
     `, { count: "exact" })
     .gte('assignment_date', startStr)

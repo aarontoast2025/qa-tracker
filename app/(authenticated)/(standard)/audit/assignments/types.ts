@@ -4,6 +4,7 @@ export interface Specialist {
   last_name: string | null;
   eid: string | null;
   skill: string | null;
+  channel: string | null;
   supervisor: string | null;
   role: string | null;
   status: string | null;
@@ -30,7 +31,21 @@ export interface Assignment {
   status: string;
   assignment_date: string | null;
   created_at: string;
-  qa: { first_name: string | null; last_name: string | null } | null;
-  specialist: { first_name: string | null; last_name: string | null; eid: string | null } | null;
+  qa: { 
+    id: string;
+    first_name: string | null; 
+    last_name: string | null;
+    avatar_url?: string | null;
+  } | null;
+  specialist: { 
+    id: string;
+    first_name: string | null; 
+    last_name: string | null; 
+    eid: string | null;
+    role: string | null;
+    skill: string | null;
+    channel: string | null;
+    supervisor: string | null;
+  } | null;
   form: { title: string } | null;
 }

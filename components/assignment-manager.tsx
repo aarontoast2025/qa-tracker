@@ -359,8 +359,8 @@ export function AssignmentManager({
         if (!specMap.has(specId)) {
             specMap.set(specId, { 
                 name: `${a.specialist?.first_name} ${a.specialist?.last_name}`, 
-                eid: (a.specialist as any)?.eid,
-                supervisor: (a.specialist as any)?.supervisor,
+                eid: a.specialist?.eid,
+                supervisor: a.specialist?.supervisor,
                 count: 0, 
                 tickets: [] 
             });
@@ -495,7 +495,7 @@ export function AssignmentManager({
                                             <td className="px-4 py-3 text-xs font-medium text-foreground">{formatDateLabel(a.assignment_date)}</td>
                                             <td className="px-4 py-3 font-medium text-foreground">
                                                 <div className="font-semibold">{a.specialist?.first_name} {a.specialist?.last_name}</div>
-                                                <div className="text-[10px] text-muted-foreground">{(a.specialist as any)?.eid}</div>
+                                                <div className="text-[10px] text-muted-foreground">{a.specialist?.eid}</div>
                                             </td>
                                             <td className="px-4 py-3">{a.qa?.first_name} {a.qa?.last_name}</td>
                                             <td className="px-4 py-3 text-xs">{a.form?.title || "Default"}</td>
