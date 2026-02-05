@@ -225,12 +225,12 @@ export default function AuditRecordsPage() {
     };
 
     const copyToAnnotation = (record: any) => {
-        const specName = record.specialist ? `${record.specialist.first_name} ${record.specialist.last_name}` : '';
+        const specName = record.advocate_name || '';
         const lines = [
             `Interaction ID: ${record.interaction_id || ''}`,
             `Advocate Name: ${specName}`,
             `Date of Interaction: ${formatDateMMDDYY(record.date_interaction)}`,
-            `Date of Evaluation: ${formatDateMMDDYY(record.assignment_date)}`,
+            `Date of Evaluation: ${formatDateMMDDYY(record.date_evaluation)}`,
             `Call ANI/DNIS: ${record.call_ani || ''}`,
             `Case #: ${record.case_number || ''}`,
             `Call Duration: ${record.call_duration || ''}`,
@@ -316,12 +316,12 @@ export default function AuditRecordsPage() {
         });
 
         // Build Details String
-        const specName = record.specialist ? `${record.specialist.first_name} ${record.specialist.last_name}` : '';
+        const specName = record.advocate_name || '';
         const detailsLines = [
             `Interaction ID: ${record.interaction_id || ''}`,
             `Advocate Name: ${specName}`,
             `Date of Interaction: ${formatDateMMDDYY(record.date_interaction)}`,
-            `Date of Evaluation: ${formatDateMMDDYY(record.assignment_date)}`,
+            `Date of Evaluation: ${formatDateMMDDYY(record.date_evaluation)}`,
             `Call ANI/DNIS: ${record.call_ani || ''}`,
             `Case #: ${record.case_number || ''}`,
             `Call Duration: ${record.call_duration || ''}`,
