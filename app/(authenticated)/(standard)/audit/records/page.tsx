@@ -126,12 +126,17 @@ export default function AuditRecordsPage() {
             endDate = endOfMonth(currentDate);
         }
 
+        // Use formatted strings for date_evaluation to avoid timezone shifts
+        // date_evaluation in DB is timestamptz, but we often treat it as a date
+        const startStr = format(startDate, 'yyyy-MM-dd');
+        const endStr = format(endDate, 'yyyy-MM-dd');
+
         const { data, error } = await supabase
             .from('audit_evaluations')
             .select('*')
-            .gte('date_evaluation', startDate.toISOString())
-            .lte('date_evaluation', endDate.toISOString())
-            .order('date_evaluation', { ascending: false });
+            .gte('date_evaluation', startStr)
+            .lte('date_evaluation', endStr)
+            .order('created_at', { ascending: false });
 
         if (error) {
             console.error("Error fetching records:", error);
