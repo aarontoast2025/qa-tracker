@@ -40,6 +40,27 @@ export default async function ProtectedLayout({
                 >
                     Knowledgebase
                 </Link>
+
+                <DropdownMenu>
+                    <DropdownMenuTrigger className="flex items-center gap-1 font-medium hover:text-primary transition-colors focus:outline-none">
+                        Assignments <ChevronDown className="h-4 w-4 opacity-50" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                            <Link href="/audit/assignments" className="cursor-pointer">
+                                <ClipboardList className="mr-2 h-4 w-4" />
+                                <span>Assignment Manager</span>
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href="/audit/dashboard" className="cursor-pointer">
+                                <FileText className="mr-2 h-4 w-4" />
+                                <span>QA Dashboard</span>
+                            </Link>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
                 <DropdownMenu>
                     <DropdownMenuTrigger className="flex items-center gap-1 font-medium hover:text-primary transition-colors focus:outline-none">
                         Audit <ChevronDown className="h-4 w-4 opacity-50" />

@@ -129,9 +129,9 @@ export default function AuditRecordsPage() {
         const { data, error } = await supabase
             .from('audit_evaluations')
             .select('*')
-            .gte('created_at', startDate.toISOString())
-            .lte('created_at', endDate.toISOString())
-            .order('created_at', { ascending: false });
+            .gte('date_evaluation', startDate.toISOString())
+            .lte('date_evaluation', endDate.toISOString())
+            .order('date_evaluation', { ascending: false });
 
         if (error) {
             console.error("Error fetching records:", error);
@@ -220,11 +220,12 @@ export default function AuditRecordsPage() {
     };
 
     const copyToAnnotation = (record: any) => {
+        const specName = record.specialist ? `${record.specialist.first_name} ${record.specialist.last_name}` : '';
         const lines = [
             `Interaction ID: ${record.interaction_id || ''}`,
-            `Advocate Name: ${record.advocate_name || ''}`,
+            `Advocate Name: ${specName}`,
             `Date of Interaction: ${formatDateMMDDYY(record.date_interaction)}`,
-            `Date of Evaluation: ${formatDateMMDDYY(record.date_evaluation)}`,
+            `Date of Evaluation: ${formatDateMMDDYY(record.assignment_date)}`,
             `Call ANI/DNIS: ${record.call_ani || ''}`,
             `Case #: ${record.case_number || ''}`,
             `Call Duration: ${record.call_duration || ''}`,
@@ -310,11 +311,12 @@ export default function AuditRecordsPage() {
         });
 
         // Build Details String
+        const specName = record.specialist ? `${record.specialist.first_name} ${record.specialist.last_name}` : '';
         const detailsLines = [
             `Interaction ID: ${record.interaction_id || ''}`,
-            `Advocate Name: ${record.advocate_name || ''}`,
+            `Advocate Name: ${specName}`,
             `Date of Interaction: ${formatDateMMDDYY(record.date_interaction)}`,
-            `Date of Evaluation: ${formatDateMMDDYY(record.date_evaluation)}`,
+            `Date of Evaluation: ${formatDateMMDDYY(record.assignment_date)}`,
             `Call ANI/DNIS: ${record.call_ani || ''}`,
             `Case #: ${record.case_number || ''}`,
             `Call Duration: ${record.call_duration || ''}`,
