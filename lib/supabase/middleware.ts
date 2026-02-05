@@ -92,6 +92,7 @@ export async function updateSession(request: NextRequest) {
                      request.nextUrl.pathname.startsWith("/api/dictionary") ||
                      request.nextUrl.pathname.startsWith("/api/case-notes-checker");
   const isPublicFile = request.nextUrl.pathname === "/qa-form.js";
+  const isPublicPage = request.nextUrl.pathname.startsWith("/audit-records");
   
   if (
     request.nextUrl.pathname !== "/" &&
@@ -99,7 +100,8 @@ export async function updateSession(request: NextRequest) {
     !request.nextUrl.pathname.startsWith("/login") &&
     !isAuthRoute &&
     !isPublicApi &&
-    !isPublicFile
+    !isPublicFile &&
+    !isPublicPage
   ) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
