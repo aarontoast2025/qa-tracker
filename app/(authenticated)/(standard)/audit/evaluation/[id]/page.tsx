@@ -104,7 +104,8 @@ export default async function EvaluationPage({
     });
   });
 
-  const specialistName = `${assignment.specialist?.first_name || ""} ${assignment.specialist?.last_name || ""}`;
+  const specialist = Array.isArray(assignment.specialist) ? assignment.specialist[0] : assignment.specialist;
+  const specialistName = `${specialist?.first_name || ""} ${specialist?.last_name || ""}`;
 
   return (
     <div className="w-full max-w-5xl mx-auto p-4 md:p-8">

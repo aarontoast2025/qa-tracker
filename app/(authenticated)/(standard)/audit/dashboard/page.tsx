@@ -89,8 +89,9 @@ export default async function DashboardPage(props: {
   if (query) {
     const q = query.toLowerCase();
     processedData = processedData.filter((a: any) => {
-      const name = `${a.specialist?.first_name} ${a.specialist?.last_name}`.toLowerCase();
-      const eid = a.specialist?.eid?.toLowerCase() || "";
+      const specialist = Array.isArray(a.specialist) ? a.specialist[0] : a.specialist;
+      const name = `${specialist?.first_name || ""} ${specialist?.last_name || ""}`.toLowerCase();
+      const eid = specialist?.eid?.toLowerCase() || "";
       return name.includes(q) || eid.includes(q);
     });
   }

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { format } from "date-fns";
 
 interface SavePayload {
   assignmentId: string;
@@ -41,8 +42,12 @@ export async function saveEvaluation(payload: SavePayload) {
     };
 
     // Capture supervisor if not already captured
-    if (!currentAssign?.supervisor && currentAssign?.specialist?.supervisor) {
-      updateData.supervisor = currentAssign.specialist.supervisor;
+    const specialist = Array.isArray(currentAssign?.specialist) 
+      ? currentAssign?.specialist[0] 
+      : currentAssign?.specialist;
+
+    if (!currentAssign?.supervisor && specialist?.supervisor) {
+      updateData.supervisor = specialist.supervisor;
     }
 
     if (status === 'completed') {
