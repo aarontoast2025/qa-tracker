@@ -158,6 +158,7 @@ export default function AuditRecordsPublicPage() {
             .select('*')
             .gte('date_evaluation', startStr)
             .lte('date_evaluation', endStr)
+            .neq('status', 'deleted')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -216,7 +217,11 @@ export default function AuditRecordsPublicPage() {
         
         setIsDeleting(true);
         const supabase = createClient();
-        const { error } = await supabase.from('audit_evaluations').delete().eq('id', recordToDelete);
+        // Soft delete: Update status to 'deleted' because RLS prevents public/anon DELETE
+        const { error } = await supabase
+            .from('audit_evaluations')
+            .update({ status: 'deleted' })
+            .eq('id', recordToDelete);
         
         if (error) {
             toast.error("Failed to delete record: " + error.message);
