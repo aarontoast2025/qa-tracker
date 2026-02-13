@@ -653,7 +653,7 @@
         };
 
         // --- Input Section ---
-        var divInputs = createElement("div", "display:flex; flex-direction:column; gap:15px");
+        var divInputs = createElement("div", "display:flex; flex-direction:column; gap:15px; max-height:300px; overflow-y:auto; padding-right:5px");
         
         var grpSubject = createElement("div");
         var lblSubject = createElement("label", sLabel);
@@ -696,7 +696,7 @@
             var subject = inpSubject.value.trim();
             var notes = txtNotes.value.trim();
 
-            if(!transcript) return showToast("No transcript found", true);
+            if(!transcript) return showToast("No transcript found on page", true);
             if(!subject) return showToast("Subject Line is required", true);
             if(!notes) return showToast("Case Notes are required", true);
 
