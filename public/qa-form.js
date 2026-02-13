@@ -696,7 +696,19 @@
             var subject = inpSubject.value.trim();
             var notes = txtNotes.value.trim();
 
-            if(!transcript) return showToast("No transcript found on page", true);
+            console.log("QA Tool [Case Notes Checker]:", { 
+                transcriptLength: transcript.length, 
+                subjectLength: subject.length, 
+                notesLength: notes.length 
+            });
+
+            if(!transcript || !transcript.trim()) {
+                console.warn("QA Tool: No transcript found using selector .spec-transcript-content");
+                return showToast("No transcript found on page. Please ensure you are on a page with a transcript.", true);
+            }
+            
+            showToast("Analyzing " + transcript.length + " characters of transcript...", false);
+
             if(!subject) return showToast("Subject Line is required", true);
             if(!notes) return showToast("Case Notes are required", true);
 
@@ -708,10 +720,13 @@
             inputAccordion.body.style.display = "none";
             inputAccordion.container.firstChild.lastChild.textContent = "▼";
 
+            var payload = { transcript: transcript, subject: subject, notes: notes };
+            console.log("QA Tool [Case Notes Checker] Sending payload:", payload);
+
             fetch(API_BASE_URL + '/api/case-notes-checker', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ transcript: transcript, subject: subject, notes: notes })
+                body: JSON.stringify(payload)
             })
             .then(function(res){ return res.json(); })
             .then(function(data){
@@ -772,7 +787,7 @@
         showSettingsModal("Issue/Concern Prompt Settings", "summary", "Enter prompt template. Use {{transcript}} for the transcript placeholder.");
     }, toolsMenu));
     toolsMenu.appendChild(createMenuItem("Case Notes Prompt", function() {
-        showSettingsModal("Case Notes Prompt Settings", "case_notes", "Enter prompt template. Use {{subject}} and {{notes}} for placeholders.");
+        showSettingsModal("Case Notes Prompt Settings", "case_notes", "Enter prompt template. Use {{transcript}}, {{guidelines}}, {{subject}}, and {{notes}} for placeholders.");
     }, toolsMenu));
     toolsMenu.appendChild(createMenuItem("Dictionary", showDictionaryModal, toolsMenu));
     

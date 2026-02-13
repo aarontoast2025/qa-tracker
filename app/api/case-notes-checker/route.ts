@@ -82,9 +82,18 @@ export async function POST(req: Request) {
         .maybeSingle();
     
     // 2. Fetch Guidelines
-    const { data: guidelines } = await supabase
+    const { data: guidelines, error: guidelinesError } = await supabase
         .from('guidelines')
         .select('topic, title, content, description');
+    
+    if (guidelinesError) console.error("Guidelines Fetch Error:", guidelinesError);
+
+    // 2.5 Fetch Dictionary Terms
+    const { data: terms, error: termsError } = await supabase
+        .from('ai_dictionary_terms')
+        .select('term, definition');
+    
+    if (termsError) console.error("Terms Fetch Error:", termsError);
 
     // 3. Build Guidelines Context
     const guidelinesText = (guidelines || []).map(g => {
@@ -94,15 +103,60 @@ export async function POST(req: Request) {
         return `Topic: ${g.topic} - ${g.title}\nContent: ${g.content || ''}\nGuidelines:\n${points}`;
     }).join('\n\n');
 
+    console.log("Case Notes Checker API Debug:", {
+        transcriptReceived: !!transcript,
+        transcriptLength: transcript?.length,
+        subjectReceived: !!subject,
+        notesReceived: !!notes,
+        guidelinesCount: guidelines?.length || 0,
+        termsCount: terms?.length || 0
+    });
+
+    // 3.5 Build Dictionary Context
+    let dictionaryContext = "";
+    if (terms && terms.length > 0) {
+        dictionaryContext = "GLOSSARY / CONTEXT DEFINITIONS:\n" + 
+            terms.map((t: any) => `- ${t.term}: ${t.definition || '(no definition)'}`).join("\n");
+    }
+
     const model = config?.model_name || DEFAULT_GEMINI_MODEL;
     const template = config?.prompt_template || DEFAULT_PROMPT_TEMPLATE;
 
     // 4. Construct Prompt
-    let prompt = template
-        .replace(/\{\{guidelines\}\}/g, guidelinesText)
-        .replace(/\{\{transcript\}\}/g, transcript)
-        .replace(/\{\{subject\}\}/g, subject)
-        .replace(/\{\{notes\}\}/g, notes);
+    let prompt = template;
+
+    // Use a more robust replacement strategy
+    const replacements: Record<string, string> = {
+        '{{guidelines}}': guidelinesText,
+        '{{transcript}}': transcript,
+        '{{subject}}': subject,
+        '{{notes}}': notes
+    };
+
+    let allPlaceholdersPresent = true;
+    Object.entries(replacements).forEach(([placeholder, value]) => {
+        const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        if (regex.test(prompt)) {
+            prompt = prompt.replace(regex, value || '(empty)');
+        } else {
+            allPlaceholdersPresent = false;
+        }
+    });
+
+    // If any key placeholder is missing from the template, append them as context
+    if (!allPlaceholdersPresent) {
+        prompt = `CONTEXT DATA:\n` +
+                 `Guidelines: ${guidelinesText}\n\n` +
+                 `Transcript: ${transcript}\n\n` +
+                 `Subject Line: ${subject}\n\n` +
+                 `Case Notes: ${notes}\n\n` +
+                 `-------------------\n\n` +
+                 `INSTRUCTION:\n${prompt}`;
+    }
+
+    if (dictionaryContext) {
+        prompt = `${dictionaryContext}\n\n${prompt}`;
+    }
 
     // 5. Call Gemini API
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
