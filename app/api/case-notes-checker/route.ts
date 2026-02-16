@@ -18,51 +18,59 @@ Subject Line: {{subject}}
 Case Notes: {{notes}}
 
 TASK:
-Evaluate the Subject Line and Case Notes. Provide feedback and a recommended version for each section: Subject Line, Issue, Steps Taken, and Resolution. 
-Then provide "General Feedback: Important Missing Details".
+1. Generate a summary of the transcript based on these instructions: {{summary_prompt}}
+2. Evaluate the Subject Line and Case Notes. Provide feedback and a recommended version for each section: Subject Line, Issue, Steps Taken, and Resolution.
 
 FORMAT:
 Follow this exact format strictly:
 
-Subject Line
-Feedback: [One paragraph feedback]
-Recommended Subject Line:
-• [Recommendation 1]
-• [Recommendation 2]
+SUMMARY
+[The summary of the transcript here]
 
 ---------------------------------------------------------
 
-Issue
-Feedback: [One paragraph feedback]
-Recommended Issue:
-Issue: [Recommended issue text]
+SUBJECT LINE
+Feedback:
+[Feedback for the subject line]
+
+Recommended:
+[Recommended subject line]
 
 ---------------------------------------------------------
 
-Steps Taken
-Feedback: [One paragraph feedback]
-Recommended Steps Taken:
-Steps Taken:
+ISSUE
+Feedback:
+[One paragraph feedback for the issue case note section]
+
+Recommended:
+[One paragraph recommended issue section]
+
+---------------------------------------------------------
+
+STEPS TAKEN
+Feedback:
+[One paragraph feedback for the steps taken section]
+
+Recommended:
 • [Step 1]
 • [Step 2]
+(Maximum of 6 bullet points)
 
 ---------------------------------------------------------
 
 Resolution
-Feedback: [One paragraph feedback]
-Recommended Resolution:
-Resolution: [Recommended resolution text]
+Feedback:
+[One paragraph feedback for the resolution section]
 
----------------------------------------------------------
-
-General Feedback: Important Missing Details
-[One paragraph summarizing major omissions or critical feedback]
+Recommended:
+[One paragraph recommended resolution section]
 
 INSTRUCTIONS:
 - Use 'customer' and 'Specialist' instead of names.
 - Be specific about dates, amounts, and other relevant details mentioned in transcript.
 - Do not include phone numbers or company codes.
-- Ensure the feedback is constructive and highlights exactly what was missing or could be improved based on the transcript and guidelines.`;
+- Ensure the feedback is constructive and highlights exactly what was missing or could be improved based on the transcript and guidelines.
+- For STEPS TAKEN Recommended, use bullet points and limit to a maximum of 6 items.`;
 
 export async function POST(req: Request) {
   try {
@@ -74,13 +82,15 @@ export async function POST(req: Request) {
 
     const supabase = createAdminClient();
 
-    // 1. Fetch Config
-    const { data: config } = await supabase
+    // 1. Fetch Configs
+    const { data: configs } = await supabase
         .from('ai_features_config')
         .select('*')
-        .eq('feature_key', 'case_notes')
-        .maybeSingle();
+        .in('feature_key', ['case_notes', 'summary']);
     
+    const caseNotesConfig = configs?.find(c => c.feature_key === 'case_notes');
+    const summaryConfig = configs?.find(c => c.feature_key === 'summary');
+
     // 2. Fetch Guidelines
     const { data: guidelines, error: guidelinesError } = await supabase
         .from('guidelines')
@@ -103,15 +113,6 @@ export async function POST(req: Request) {
         return `Topic: ${g.topic} - ${g.title}\nContent: ${g.content || ''}\nGuidelines:\n${points}`;
     }).join('\n\n');
 
-    console.log("Case Notes Checker API Debug:", {
-        transcriptReceived: !!transcript,
-        transcriptLength: transcript?.length,
-        subjectReceived: !!subject,
-        notesReceived: !!notes,
-        guidelinesCount: guidelines?.length || 0,
-        termsCount: terms?.length || 0
-    });
-
     // 3.5 Build Dictionary Context
     let dictionaryContext = "";
     if (terms && terms.length > 0) {
@@ -119,8 +120,9 @@ export async function POST(req: Request) {
             terms.map((t: any) => `- ${t.term}: ${t.definition || '(no definition)'}`).join("\n");
     }
 
-    const model = config?.model_name || DEFAULT_GEMINI_MODEL;
-    const template = config?.prompt_template || DEFAULT_PROMPT_TEMPLATE;
+    const model = caseNotesConfig?.model_name || DEFAULT_GEMINI_MODEL;
+    const template = caseNotesConfig?.prompt_template || DEFAULT_PROMPT_TEMPLATE;
+    const summaryPrompt = summaryConfig?.prompt_template || "Summarize the transcript concisely, identifying the customer's concern and the resolution. Do not use names.";
 
     // 4. Construct Prompt
     let prompt = template;
@@ -130,7 +132,8 @@ export async function POST(req: Request) {
         '{{guidelines}}': guidelinesText,
         '{{transcript}}': transcript,
         '{{subject}}': subject,
-        '{{notes}}': notes
+        '{{notes}}': notes,
+        '{{summary_prompt}}': summaryPrompt
     };
 
     let allPlaceholdersPresent = true;
@@ -139,7 +142,10 @@ export async function POST(req: Request) {
         if (regex.test(prompt)) {
             prompt = prompt.replace(regex, value || '(empty)');
         } else {
-            allPlaceholdersPresent = false;
+            // summary_prompt might not be in a custom template, that's okay
+            if (placeholder !== '{{summary_prompt}}') {
+                allPlaceholdersPresent = false;
+            }
         }
     });
 
@@ -150,6 +156,7 @@ export async function POST(req: Request) {
                  `Transcript: ${transcript}\n\n` +
                  `Subject Line: ${subject}\n\n` +
                  `Case Notes: ${notes}\n\n` +
+                 `Summary Instructions: ${summaryPrompt}\n\n` +
                  `-------------------\n\n` +
                  `INSTRUCTION:\n${prompt}`;
     }

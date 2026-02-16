@@ -609,11 +609,10 @@
     };
 
     var showCaseNotesCheckerModal = function() {
-        var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:transparent");
-        pOverlay.style.pointerEvents = "none";
-        pOverlay.style.alignItems = "center"; 
+        var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:rgba(0,0,0,0.2); pointer-events:auto; display:block; padding: 40px 0");
+        pOverlay.style.textAlign = "center";
         
-        var pModal = createElement("div", sModal + "; height:auto; max-height:85vh; width:600px; cursor:default; user-select:auto; display:flex; flex-direction:column; overflow:visible");
+        var pModal = createElement("div", sModal + "; height:auto; max-height:none; width:600px; display:inline-flex; vertical-align:top; text-align:left; margin:0 auto; position:relative; overflow:visible");
         
         var pHeader = createElement("div", sHeader + "; cursor:move"); 
         pHeader.innerHTML = "<span>Case Notes Checker</span>";
@@ -622,7 +621,7 @@
         addListener(pClose, "click", function(){ pOverlay.remove(); });
         pHeader.appendChild(pClose);
         
-        var pBody = createElement("div", "padding:20px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:15px");
+        var pBody = createElement("div", "padding:20px; flex:1; display:flex; flex-direction:column; gap:15px");
         
         var createAccordion = function(title, contentNodes, isOpen) {
             var container = createElement("div");
@@ -653,7 +652,7 @@
         };
 
         // --- Input Section ---
-        var divInputs = createElement("div", "display:flex; flex-direction:column; gap:15px; max-height:300px; overflow-y:auto; padding-right:5px");
+        var divInputs = createElement("div", "display:flex; flex-direction:column; gap:15px; padding-right:5px");
         
         var grpSubject = createElement("div");
         var lblSubject = createElement("label", sLabel);
@@ -678,7 +677,7 @@
 
         // --- Output Section ---
         var divOutput = createElement("div");
-        divOutput.style.cssText = "max-height:400px; overflow-y:auto; font-family:inherit; font-size:13px; line-height:1.5; color:#333; padding-right:5px";
+        divOutput.style.cssText = "font-family:inherit; font-size:13px; line-height:1.5; color:#333; padding-right:5px";
         
         var resPlaceholder = createElement("div");
         resPlaceholder.innerHTML = "<div style='color:#999; font-style:italic; padding:20px; text-align:center; background:#f9fafb; border-radius:4px; border:1px dashed #ccc'>Generated analysis will appear here...</div>";
@@ -688,6 +687,12 @@
         pBody.appendChild(outputAccordion.container);
 
         var pFooter = createElement("div", sFooter);
+
+        var pBtnCancel = createElement("button", sBtnCancel);
+        pBtnCancel.textContent = "Cancel";
+        addListener(pBtnCancel, "click", function(){ pOverlay.remove(); });
+        pFooter.appendChild(pBtnCancel);
+
         var pBtnGen = createElement("button", sBtnGenerate);
         pBtnGen.textContent = "Generate";
         
@@ -714,11 +719,10 @@
 
             pBtnGen.disabled = true;
             pBtnGen.textContent = "Generating... ⏳";
-            resPlaceholder.innerHTML = "<div style='padding:20px; text-align:center; color:#666'>🚀 AI is analyzing your notes...</div>";
+            pBtnCancel.disabled = true;
+            pBtnCancel.style.opacity = "0.5";
 
-            // Collapse input accordion to show more output
-            inputAccordion.body.style.display = "none";
-            inputAccordion.container.firstChild.lastChild.textContent = "▼";
+            resPlaceholder.innerHTML = "<div style='padding:20px; text-align:center; color:#666'>🚀 AI is analyzing your notes...</div>";
 
             var payload = { transcript: transcript, subject: subject, notes: notes };
             console.log("QA Tool [Case Notes Checker] Sending payload:", payload);
@@ -733,7 +737,23 @@
                 if(data.result) {
                     // Use pre-wrap to preserve formatting from AI
                     resPlaceholder.innerHTML = "<div style='white-space:pre-wrap; padding:10px'>" + data.result + "</div>";
+                    
+                    // Extract SUMMARY to populate Issue/Concern
+                    var resultText = data.result;
+                    var summaryMatch = resultText.match(/SUMMARY\n([\s\S]*?)\n-{3,}/);
+                    if (summaryMatch && summaryMatch[1]) {
+                        var summary = summaryMatch[1].trim();
+                        if (fIssueConcern && fIssueConcern.input) {
+                            fIssueConcern.input.value = summary;
+                            fIssueConcern.input.dispatchEvent(new Event('input'));
+                        }
+                    }
+
                     showToast("Analysis complete!", false);
+                    
+                    // Collapse input accordion to show more output
+                    inputAccordion.body.style.display = "none";
+                    inputAccordion.container.firstChild.lastChild.textContent = "▼";
                 } else {
                     throw new Error(data.error || "Analysis failed");
                 }
@@ -745,6 +765,8 @@
             .finally(function(){
                 pBtnGen.disabled = false;
                 pBtnGen.textContent = "Generate";
+                pBtnCancel.disabled = false;
+                pBtnCancel.style.opacity = "1";
             });
         });
         
