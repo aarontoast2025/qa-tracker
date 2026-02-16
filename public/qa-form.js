@@ -612,7 +612,7 @@
         var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:transparent; pointer-events:none; display:block; padding: 40px 0");
         pOverlay.style.textAlign = "center";
         
-        var pModal = createElement("div", sModal + "; width:600px; display:inline-flex; vertical-align:top; text-align:left; margin:0 auto; position:relative; pointer-events:auto");
+        var pModal = createElement("div", sModal + "; width:600px; display:inline-flex; vertical-align:top; text-align:left; margin:0 auto; position:relative; pointer-events:auto; user-select:auto");
         
         var pHeader = createElement("div", sHeader + "; cursor:move"); 
         pHeader.innerHTML = "<span>Case Notes Checker</span>";
@@ -621,11 +621,11 @@
         addListener(pClose, "click", function(){ pOverlay.remove(); });
         pHeader.appendChild(pClose);
         
-        var pBody = createElement("div", "padding:20px; flex:1; display:flex; flex-direction:column; gap:15px; overflow-y:auto; user-select:text");
+        var pBody = createElement("div", "padding:20px; flex:1; display:block; overflow-y:auto; user-select:text");
         
         var createAccordion = function(title, contentNodes, isOpen) {
             var container = createElement("div");
-            container.style.cssText = "border:1px solid #e0e0e0; border-radius:4px; margin-bottom:10px; overflow:hidden";
+            container.style.cssText = "border:1px solid #e0e0e0; border-radius:4px; margin-bottom:10px";
             
             var header = createElement("div");
             header.style.cssText = "padding:10px 15px; background:#f5f5f5; cursor:pointer; font-weight:600; display:flex; justify-content:space-between; align-items:center; user-select:none";
@@ -677,9 +677,11 @@
 
         // --- Output Section ---
         var divOutput = createElement("div");
-        divOutput.style.cssText = "font-family:inherit; font-size:13px; line-height:1.5; color:#333; padding-right:5px; user-select:text";
+        divOutput.style.cssText = "font-family:inherit; font-size:13px; line-height:1.5; color:#333; padding-right:5px; user-select:text; cursor:auto";
         
         var resPlaceholder = createElement("div");
+        resPlaceholder.style.userSelect = "text";
+        resPlaceholder.style.cursor = "auto";
         resPlaceholder.innerHTML = "<div style='color:#999; font-style:italic; padding:20px; text-align:center; background:#f9fafb; border-radius:4px; border:1px dashed #ccc'>Generated analysis will appear here...</div>";
         divOutput.appendChild(resPlaceholder);
         
@@ -736,7 +738,7 @@
             .then(function(data){
                 if(data.result) {
                     // Use pre-wrap to preserve formatting from AI
-                    resPlaceholder.innerHTML = "<div style='white-space:pre-wrap; padding:10px; user-select:text'>" + data.result + "</div>";
+                    resPlaceholder.innerHTML = "<div style='white-space:pre-wrap; padding:10px; user-select:text; cursor:text'>" + data.result + "</div>";
                     
                     // Extract SUMMARY to populate Issue/Concern
                     var resultText = data.result;
