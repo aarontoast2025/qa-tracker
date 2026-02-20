@@ -42,6 +42,13 @@
 </head>
 <body>
     <h1>QA Tracker Bookmarklet Test Page</h1>
+
+    <div class="test-section">
+        <h2>Configuration</h2>
+        <p>Set the Form ID to test with different forms:</p>
+        <input type="text" id="form-id-input" value="afb48a57-c3d3-47c7-a0fe-555db55f3b7b" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;">
+        <button onclick="updateLinks()">Update Test Links</button>
+    </div>
     
     <div class="test-section">
         <h2>Test 1: API Endpoint</h2>
@@ -60,27 +67,50 @@
     <div class="test-section">
         <h2>Test 3: Bookmarklet Link</h2>
         <p>Drag this link to your bookmarks bar:</p>
-        <a href="javascript:(function(){const s=document.createElement('script');s.src='https://aarontoast2025.github.io/qa-tracker/public/qa-form.js?v='+(new Date).getTime();document.head.appendChild(s);}());" 
+        <a id="prod-link" href="javascript:(function(){const fid='afb48a57-c3d3-47c7-a0fe-555db55f3b7b';const s=document.createElement('script');s.src='https://aarontoast2025.github.io/qa-tracker/public/qa-form.js?fid='+fid+'&v='+(new Date).getTime();document.head.appendChild(s);}());" 
            style="padding: 10px 20px; background: #059669; color: white; text-decoration: none; border-radius: 4px; display: inline-block;">
-            QA Form Tool
+            QA Form Tool (Prod)
+        </a>
+        <a id="local-link" href="javascript:(function(){window.QA_TOOL_LOCAL=true;const fid='afb48a57-c3d3-47c7-a0fe-555db55f3b7b';const s=document.createElement('script');s.src='http://localhost:3000/qa-form.js?fid='+fid+'&v='+(new Date).getTime();document.head.appendChild(s);}());" 
+           style="padding: 10px 20px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; display: inline-block; margin-left: 10px;">
+            QA Form Tool (Local)
         </a>
     </div>
 
     <script>
-        const API_URL = 'https://qa-tracker-toast.vercel.app/api/embed/form/41e96e83-dad5-4752-be7f-ae0a5dd31406';
-        const LOCAL_API_URL = 'http://localhost:3001/api/embed/form/41e96e83-dad5-4752-be7f-ae0a5dd31406';
+        const API_BASE = 'https://qa-tracker-toast.vercel.app/api/embed/form/';
+        const LOCAL_API_BASE = 'http://localhost:3000/api/embed/form/';
+
+        function getFormId() {
+            return document.getElementById('form-id-input').value.trim();
+        }
+
+        function updateLinks() {
+            const fid = getFormId();
+            const prodLink = document.getElementById('prod-link');
+            const localLink = document.getElementById('local-link');
+
+            prodLink.href = `javascript:(function(){const fid='${fid}';const s=document.createElement('script');s.src='https://aarontoast2025.github.io/qa-tracker/public/qa-form.js?fid='+fid+'&v='+(new Date).getTime();document.head.appendChild(s);}());`;
+            localLink.href = `javascript:(function(){window.QA_TOOL_LOCAL=true;const fid='${fid}';const s=document.createElement('script');s.src='http://localhost:3000/qa-form.js?fid='+fid+'&v='+(new Date).getTime();document.head.appendChild(s);}());`;
+            
+            alert('Test links updated with Form ID: ' + fid);
+        }
 
         async function testAPI() {
+            const fid = getFormId();
             const resultDiv = document.getElementById('api-result');
             resultDiv.innerHTML = '<p>Testing API endpoint...</p>';
             
             try {
-                // Try production first
-                let response = await fetch(API_URL);
+                // Try local first if we are on localhost, otherwise production
+                const isLocal = window.location.hostname === 'localhost';
+                const url = isLocal ? LOCAL_API_BASE + fid : API_BASE + fid;
                 
-                if (!response.ok) {
-                    // Try local if production fails
-                    response = await fetch(LOCAL_API_URL);
+                let response = await fetch(url);
+                
+                if (!response.ok && !isLocal) {
+                    // Try local if production fails and we aren't already trying local
+                    response = await fetch(LOCAL_API_BASE + fid);
                 }
                 
                 const data = await response.json();
@@ -101,22 +131,27 @@
         }
 
         function loadBookmarklet() {
+            const fid = getFormId();
             const resultDiv = document.getElementById('script-result');
             resultDiv.innerHTML = '<p>Loading script...</p>';
             
             // Remove existing script if present
-            const existing = document.getElementById('qa-tracker-root');
+            const existing = document.getElementById('qa-modal-overlay');
             if (existing) {
                 existing.remove();
             }
             
             const script = document.createElement('script');
-            script.src = 'https://aarontoast2025.github.io/qa-tracker/public/qa-form.js?v=' + (new Date).getTime();
+            // If we are on localhost, use local script, otherwise use GitHub Pages
+            const isLocal = window.location.hostname === 'localhost';
+            const base = isLocal ? 'http://localhost:3000/qa-form.js' : 'https://aarontoast2025.github.io/qa-tracker/public/qa-form.js';
+            
+            script.src = base + '?fid=' + fid + '&v=' + (new Date).getTime();
             script.onload = function() {
                 resultDiv.innerHTML = '<p class="success">✅ Script loaded! Check if QA form appeared on the page.</p>';
             };
             script.onerror = function() {
-                resultDiv.innerHTML = '<p class="error">❌ Failed to load script from GitHub Pages</p>';
+                resultDiv.innerHTML = '<p class="error">❌ Failed to load script. Make sure the server is running or GitHub Pages is updated.</p>';
             };
             document.head.appendChild(script);
         }

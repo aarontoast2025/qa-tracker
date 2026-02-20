@@ -8,11 +8,19 @@ This bookmarklet loads the QA form tool from GitHub Pages, which is trusted by S
 
 1. Create a new bookmark in your browser
 2. Name it something like "QA Form Tool"
-3. Copy the code below and paste it into the **URL** or **Address** field:
+3. Copy the code below (Production) and paste it into the **URL** or **Address** field:
 
+#### Production
 ```javascript
-javascript:(function(){const s=document.createElement('script');s.src='https://aarontoast2025.github.io/qa-tracker/public/qa-form.js?v='+(new Date).getTime();document.head.appendChild(s);}());
+javascript:(function(){const fid='afb48a57-c3d3-47c7-a0fe-555db55f3b7b';const s=document.createElement('script');s.src='https://aarontoast2025.github.io/qa-tracker/public/qa-form.js?fid='+fid+'&v='+(new Date).getTime();document.head.appendChild(s);}());
 ```
+
+#### Local Development
+```javascript
+javascript:(function(){window.QA_TOOL_LOCAL=true;const fid='afb48a57-c3d3-47c7-a0fe-555db55f3b7b';const s=document.createElement('script');s.src='http://localhost:3000/qa-form.js?fid='+fid+'&v='+(new Date).getTime();document.head.appendChild(s);}());
+```
+
+> **Tip:** You can replace the `fid` value in the bookmarklet code to use a different form ID.
 
 ### Step 2: Use the Bookmarklet
 
@@ -20,6 +28,18 @@ javascript:(function(){const s=document.createElement('script');s.src='https://a
 2. Click the bookmarklet you created
 3. The QA form tool will appear on the right side of the page
 4. Fill out the form and use the automation features as needed
+
+## Using Multiple Forms
+
+The script now supports multiple forms. You can specify which form to load by either:
+
+1. **In the Script URL:** Adding `?fid=YOUR_FORM_ID` to the script's `src` in the bookmarklet (as shown above).
+2. **As a Global Variable:** Setting `window.QA_FORM_ID = 'YOUR_FORM_ID';` before the script loads.
+
+Example of using a global variable:
+```javascript
+javascript:(function(){window.QA_FORM_ID='another-uuid-here';const s=document.createElement('script');s.src='https://aarontoast2025.github.io/qa-tracker/public/qa-form.js?v='+(new Date).getTime();document.head.appendChild(s);}());
+```
 
 ## How It Works
 

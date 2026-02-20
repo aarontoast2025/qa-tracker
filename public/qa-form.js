@@ -12,7 +12,23 @@
         API_BASE_URL = 'http://localhost:3000';
     }
     
-    var FORM_ID = 'afb48a57-c3d3-47c7-a0fe-555db55f3b7b';
+    // Check for FORM_ID in script URL query params or window global
+    var getFormId = function() {
+        if (window.QA_FORM_ID) return window.QA_FORM_ID;
+        
+        // Try to get from script tag src (e.g. qa-form.js?fid=UUID)
+        var scripts = document.getElementsByTagName('script');
+        for (var i = 0; i < scripts.length; i++) {
+            var src = scripts[i].src;
+            if (src && src.indexOf('qa-form.js') !== -1) {
+                var match = src.match(/[?&]fid=([^&]+)/);
+                if (match) return match[1];
+            }
+        }
+        return 'afb48a57-c3d3-47c7-a0fe-555db55f3b7b'; // Fallback to current default
+    };
+    
+    var FORM_ID = getFormId();
 
     var state = {};
     var globalStructure = [];
