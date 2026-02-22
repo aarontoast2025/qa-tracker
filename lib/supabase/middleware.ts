@@ -92,7 +92,8 @@ export async function updateSession(request: NextRequest) {
                      request.nextUrl.pathname.startsWith("/api/dictionary") ||
                      request.nextUrl.pathname.startsWith("/api/case-notes-checker");
   const isPublicFile = request.nextUrl.pathname === "/qa-form.js";
-  const isPublicPage = request.nextUrl.pathname.startsWith("/audit-records");
+  const isPublicPage = request.nextUrl.pathname.startsWith("/audit-records") || 
+                     request.nextUrl.pathname.startsWith("/recorder");
   
   if (
     request.nextUrl.pathname !== "/" &&
