@@ -67,6 +67,9 @@ export default function RecorderPage() {
         });
 
         const audioContext = new AudioContext();
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
         const destination = audioContext.createMediaStreamDestination();
 
         // Add screen audio if it exists
@@ -108,12 +111,20 @@ export default function RecorderPage() {
         }
       };
 
-      // Determine mime type
-      const mimeType = MediaRecorder.isTypeSupported("video/mp4;codecs=h264") 
-        ? "video/mp4;codecs=h264" 
-        : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-        ? "video/webm;codecs=vp9"
-        : "video/webm";
+      // Determine mime type prioritizing MP4 with AAC
+      const supportedTypes = [
+        "video/mp4;codecs=avc1,mp4a.40.2",
+        "video/mp4;codecs=h264,aac",
+        "video/mp4;codecs=h264,mp4a.40.2",
+        "video/mp4;codecs=h264",
+        "video/mp4;codecs=avc1",
+        "video/mp4",
+        "video/webm;codecs=vp9,opus",
+        "video/webm;codecs=vp8,opus",
+        "video/webm"
+      ];
+      
+      const mimeType = supportedTypes.find(type => MediaRecorder.isTypeSupported(type)) || "video/webm";
 
       const mediaRecorder = new MediaRecorder(combinedStream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
@@ -173,9 +184,10 @@ export default function RecorderPage() {
     a.style.display = "none";
     a.href = url;
     
-    // Attempt to name it .mp4 if we used mp4 or if we want to force it
+    // Use the actual mime type to determine extension, prioritizing .mp4
     const extension = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
-    a.download = `recording-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.${extension}`;
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
+    a.download = `recording-${timestamp}.${extension}`;
     
     document.body.appendChild(a);
     a.click();
