@@ -376,7 +376,8 @@ export default function AuditRecordsPublicPage() {
             record.case_number || '',
             formatDateMMDDYY(record.date_evaluation),
             formatDateMMDDYY(record.date_interaction),
-            `"${details.replace(/"/g, '""')}"`,
+            details.replace(/[\n\r]+/g, ' ').replace(/\t/g, ' ').trim(),
+            record.qa_score ?? '',
             mainCat,
             subCat,
             record.call_duration || ''
