@@ -372,16 +372,15 @@ export default function AuditRecordsPublicPage() {
 
         const workbookRow = [
             'Active',
+            record.interaction_id || '',
+            record.case_number || '',
+            formatDateMMDDYY(record.date_evaluation),
+            formatDateMMDDYY(record.date_interaction),
+            `"${details.replace(/"/g, '""')}"`,
+            record.case_number || '',
             mainCat,
             subCat,
-            `"${details.replace(/"/g, '""')}"`,
-            formatDateMMDDYY(record.date_interaction),
-            formatDateMMDDYY(record.date_evaluation),
-            record.case_number || '',
-            record.interaction_id || '',
-            record.qa_score ?? '',
-            record.call_duration || '',
-            complexityVal
+            record.call_duration || ''
         ].join('\t');
 
         navigator.clipboard.writeText(workbookRow).then(() => {
