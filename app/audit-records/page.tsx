@@ -350,10 +350,11 @@ export default function AuditRecordsPublicPage() {
         sections.forEach(section => {
             const items = sectionMap[section.title];
             if (items && items.length > 0) {
-                detailsLines.push(`\n${section.title.toUpperCase()}`);
+                detailsLines.push("");
+                detailsLines.push(section.title.toUpperCase());
                 items.sort((a, b) => a.order - b.order);
                 items.forEach(i => {
-                    detailsLines.push(`\n${i.question}`);
+                    detailsLines.push(i.question);
                     detailsLines.push(`${i.answer} - ${i.feedback}`);
                 });
             }
@@ -376,7 +377,7 @@ export default function AuditRecordsPublicPage() {
             record.case_number || '',
             formatDateMMDDYY(record.date_evaluation),
             formatDateMMDDYY(record.date_interaction),
-            details.replace(/[\n\r]+/g, ' ').replace(/\t/g, ' ').trim(),
+            `"${details.replace(/"/g, '""').replace(/\t/g, ' ')}"`,
             record.qa_score ?? '',
             mainCat,
             subCat,
