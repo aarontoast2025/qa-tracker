@@ -967,10 +967,11 @@
     var saveRecord = function() {
         var items = Object.keys(state).map(function(key){
             var s = state[key];
+            var selectedOption = s.options.find(function(o){ return o.id === s.sel; });
             return {
                 item_id: s.id, // Using the stored ID directly
                 answer_id: s.sel,
-                answer_text: (s.itemType === 'dropdown_custom' || s.itemType === 'dropdown') ? s.options[s.selIndex].label : (s.sel === s.options.filter(function(o){ return o.is_correct; })[0].id ? 'Yes' : 'No'),
+                answer_text: selectedOption ? selectedOption.label : (s.sel === s.options.filter(function(o){ return o.is_correct; })[0].id ? 'Yes' : 'No'),
                 feedback_text: s.text,
                 selected_tags: s.selectedTags.map(function(t){ return t.tag_label; })
             };

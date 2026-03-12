@@ -294,7 +294,18 @@ export default function AuditRecordsPublicPage() {
         const sectionIds = sections.map(s => s.id);
         const { data: formItems, error: itemsError } = await supabase
             .from('form_items')
-            .select('id, section_id, label, short_name, order_index')
+            .select(`
+                id, 
+                section_id, 
+                label, 
+                short_name, 
+                order_index,
+                form_item_options (
+                    id,
+                    label,
+                    value
+                )
+            `)
             .in('section_id', sectionIds)
             .order('order_index');
 
@@ -303,7 +314,18 @@ export default function AuditRecordsPublicPage() {
             return;
         }
 
-        const answers = (record.form_data || []) as any[];
+        let answers: any[] = [];
+        if (Array.isArray(record.form_data)) {
+            answers = record.form_data;
+        } else if (typeof record.form_data === 'object' && record.form_data !== null) {
+            answers = Object.entries(record.form_data).map(([itemId, data]: [string, any]) => ({
+                item_id: itemId,
+                answer_id: data.option_id || data.answer_id,
+                answer_text: data.value || data.answer_text,
+                feedback_text: data.notes || data.feedback_text
+            }));
+        }
+
         const answersMap = new Map();
         answers.forEach(a => answersMap.set(a.item_id, a));
 
@@ -320,13 +342,22 @@ export default function AuditRecordsPublicPage() {
 
             const answer = answersMap.get(item.id) || {};
             const qText = (item.label || '').toLowerCase();
+            
+            let displayAnswer = answer.answer_text || '';
+            const optionId = answer.answer_id || answer.option_id;
+            
+            if (optionId && item.form_item_options) {
+                const opt = (item.form_item_options as any[]).find(o => o.id === optionId);
+                if (opt) displayAnswer = opt.label;
+            }
+
             if (qText.includes('complexity')) {
-                complexityVal = answer.answer_text || '';
+                complexityVal = displayAnswer;
             }
 
             sectionMap[section.title].push({
                 question: item.label,
-                answer: answer.answer_text || '',
+                answer: displayAnswer,
                 feedback: answer.feedback_text || '',
                 order: item.order_index
             });
@@ -353,7 +384,8 @@ export default function AuditRecordsPublicPage() {
                 detailsLines.push("");
                 detailsLines.push(section.title.toUpperCase());
                 items.sort((a, b) => a.order - b.order);
-                items.forEach(i => {
+                items.forEach((i, idx) => {
+                    if (idx > 0) detailsLines.push(""); // Add space between line items
                     detailsLines.push(i.question);
                     detailsLines.push(`${i.answer} - ${i.feedback}`);
                 });
