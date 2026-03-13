@@ -821,7 +821,221 @@
         });
     };
 
+    var showChatCheckerModal = function() {
+        var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:transparent; pointer-events:none; display:block; padding: 40px 0");
+        pOverlay.style.textAlign = "center";
+        
+        var pModal = createElement("div", sModal + "; width:600px; display:inline-flex; vertical-align:top; text-align:left; margin:0 auto; position:relative; pointer-events:auto; user-select:auto");
+        
+        var pHeader = createElement("div", sHeader + "; cursor:move"); 
+        pHeader.innerHTML = "<span>Chat Checker</span>";
+        var pClose = createElement("span", "cursor:pointer; font-size:18px; color:#999");
+        pClose.textContent = "×";
+        addListener(pClose, "click", function(){ pOverlay.remove(); });
+        pHeader.appendChild(pClose);
+        
+        var pBody = createElement("div", "padding:20px; flex:1; display:block; overflow-y:auto; user-select:text");
+        
+        var createAccordion = function(title, contentNodes, isOpen) {
+            var container = createElement("div");
+            container.style.cssText = "border:1px solid #e0e0e0; border-radius:4px; margin-bottom:10px";
+            
+            var header = createElement("div");
+            header.style.cssText = "padding:10px 15px; background:#f5f5f5; cursor:pointer; font-weight:600; display:flex; justify-content:space-between; align-items:center; user-select:none";
+            header.innerHTML = "<span>" + title + "</span><span style='font-size:12px'>" + (isOpen ? "▲" : "▼") + "</span>";
+            
+            var body = createElement("div");
+            body.style.cssText = "padding:15px; border-top:1px solid #e0e0e0; display:" + (isOpen ? "block" : "none");
+            
+            if(Array.isArray(contentNodes)) {
+                contentNodes.forEach(function(n) { body.appendChild(n); });
+            } else {
+                body.appendChild(contentNodes);
+            }
+            
+            addListener(header, "click", function() {
+                var isHidden = body.style.display === "none";
+                body.style.display = isHidden ? "block" : "none";
+                header.lastChild.textContent = isHidden ? "▲" : "▼";
+            });
+            
+            container.appendChild(header);
+            container.appendChild(body);
+            return { container: container, body: body };
+        };
+
+        // --- Input Section ---
+        var divInputs = createElement("div", "display:flex; flex-direction:column; gap:15px; padding-right:5px");
+        
+        // PDF Upload
+        var grpPdf = createElement("div");
+        var lblPdf = createElement("label", sLabel);
+        lblPdf.textContent = "Upload Chat Transcript (PDF)";
+        var inpPdf = createElement("input");
+        inpPdf.type = "file";
+        inpPdf.accept = "application/pdf";
+        inpPdf.style.cssText = sInput;
+        grpPdf.appendChild(lblPdf);
+        grpPdf.appendChild(inpPdf);
+        divInputs.appendChild(grpPdf);
+
+        var grpSubject = createElement("div");
+        var lblSubject = createElement("label", sLabel);
+        lblSubject.textContent = "Subject Line";
+        var inpSubject = createElement("input", sInput);
+        inpSubject.placeholder = "Enter Subject Line...";
+        grpSubject.appendChild(lblSubject);
+        grpSubject.appendChild(inpSubject);
+        divInputs.appendChild(grpSubject);
+
+        var grpNotes = createElement("div");
+        var lblNotes = createElement("label", sLabel);
+        lblNotes.textContent = "Case Notes";
+        var txtNotes = createElement("textarea", sTextarea + "; height:200px");
+        txtNotes.placeholder = "Paste Case Notes here...";
+        grpNotes.appendChild(lblNotes);
+        grpNotes.appendChild(txtNotes);
+        divInputs.appendChild(grpNotes);
+        
+        var inputAccordion = createAccordion("Input Data", divInputs, true);
+        pBody.appendChild(inputAccordion.container);
+
+        // --- Output Section ---
+        var divOutput = createElement("div");
+        divOutput.style.cssText = "font-family:inherit; font-size:13px; line-height:1.5; color:#333; padding-right:5px; user-select:text; cursor:auto";
+        
+        var resPlaceholder = createElement("div");
+        resPlaceholder.style.userSelect = "text";
+        resPlaceholder.style.cursor = "auto";
+        resPlaceholder.innerHTML = "<div style='color:#999; font-style:italic; padding:20px; text-align:center; background:#f9fafb; border-radius:4px; border:1px dashed #ccc'>Generated analysis will appear here...</div>";
+        divOutput.appendChild(resPlaceholder);
+        
+        var outputAccordion = createAccordion("Analysis Results", divOutput, true);
+        pBody.appendChild(outputAccordion.container);
+
+        var pFooter = createElement("div", sFooter);
+
+        var pBtnCancel = createElement("button", sBtnCancel);
+        pBtnCancel.textContent = "Cancel";
+        addListener(pBtnCancel, "click", function(){ pOverlay.remove(); });
+        pFooter.appendChild(pBtnCancel);
+
+        var pBtnGen = createElement("button", sBtnGenerate);
+        pBtnGen.textContent = "Generate";
+        
+        addListener(pBtnGen, "click", function(){
+            var subject = inpSubject.value.trim();
+            var notes = txtNotes.value.trim();
+            var file = inpPdf.files[0];
+
+            if(!file) return showToast("Please upload a PDF transcript", true);
+            if(!subject) return showToast("Subject Line is required", true);
+            if(!notes) return showToast("Case Notes are required", true);
+
+            pBtnGen.disabled = true;
+            pBtnGen.textContent = "Reading PDF... ⏳";
+            pBtnCancel.disabled = true;
+            pBtnCancel.style.opacity = "0.5";
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var base64 = e.target.result.split(',')[1];
+                
+                pBtnGen.textContent = "Generating... ⏳";
+                resPlaceholder.innerHTML = "<div style='padding:20px; text-align:center; color:#666'>🚀 AI is analyzing your chat notes...</div>";
+
+                var payload = { pdfBase64: base64, subject: subject, notes: notes };
+                
+                fetch(API_BASE_URL + '/api/chat-checker', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(function(res){ 
+                    if (!res.ok) {
+                        return res.text().then(function(text) {
+                            throw new Error("Server error (" + res.status + "): " + text.substring(0, 100));
+                        });
+                    }
+                    return res.json(); 
+                })
+                .then(function(data){
+                    if(data.result) {
+                        resPlaceholder.innerHTML = "<div style='white-space:pre-wrap; padding:10px; user-select:text; cursor:text'>" + data.result + "</div>";
+                        
+                        var resultText = data.result;
+                        var summaryMatch = resultText.match(/SUMMARY\n([\s\S]*?)\n-{3,}/);
+                        if (summaryMatch && summaryMatch[1]) {
+                            var summary = summaryMatch[1].trim();
+                            if (fIssueConcern && fIssueConcern.input) {
+                                fIssueConcern.input.value = summary;
+                                fIssueConcern.input.dispatchEvent(new Event('input'));
+                            }
+                        }
+
+                        showToast("Analysis complete!", false);
+                        inputAccordion.body.style.display = "none";
+                        inputAccordion.container.firstChild.lastChild.textContent = "▼";
+                    } else {
+                        throw new Error(data.error || "Analysis failed");
+                    }
+                })
+                .catch(function(e){
+                    showToast(e.message, true);
+                    resPlaceholder.innerHTML = "<div style='color:#ef4444; padding:20px; text-align:center'>❌ Error: " + e.message + "</div>";
+                })
+                .finally(function(){
+                    pBtnGen.disabled = false;
+                    pBtnGen.textContent = "Generate";
+                    pBtnCancel.disabled = false;
+                    pBtnCancel.style.opacity = "1";
+                });
+            };
+            reader.onerror = function() {
+                showToast("Failed to read PDF file", true);
+                pBtnGen.disabled = false;
+                pBtnGen.textContent = "Generate";
+                pBtnCancel.disabled = false;
+                pBtnCancel.style.opacity = "1";
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        pFooter.appendChild(pBtnGen);
+
+        pModal.appendChild(pHeader);
+        pModal.appendChild(pBody);
+        pModal.appendChild(pFooter);
+        pOverlay.appendChild(pModal);
+        document.body.appendChild(pOverlay);
+
+        // Drag Logic
+        var isCDragging = false, cStartX = 0, cStartY = 0, cInitialX = 0, cInitialY = 0;
+        addListener(pHeader, "mousedown", function(e){
+            if(e.target === pHeader || e.target.parentNode === pHeader || e.target.tagName === 'SPAN') {
+                if(e.target === pClose) return; 
+                isCDragging = true;
+                cStartX = e.clientX - cInitialX;
+                cStartY = e.clientY - cInitialY;
+                pHeader.style.cursor = "grabbing";
+            }
+        });
+        addListener(document, "mousemove", function(e){
+            if(isCDragging) {
+                e.preventDefault();
+                cInitialX = e.clientX - cStartX;
+                cInitialY = e.clientY - cStartY;
+                pModal.style.transform = "translate(" + cInitialX + "px, " + cInitialY + "px)";
+            }
+        });
+        addListener(document, "mouseup", function(){
+            isCDragging = false;
+            pHeader.style.cursor = "move";
+        });
+    };
+
     aiToolsMenu.appendChild(createMenuItem("Case Notes Checker", showCaseNotesCheckerModal, aiToolsMenu));
+    aiToolsMenu.appendChild(createMenuItem("Chat Checker", showChatCheckerModal, aiToolsMenu));
 
     toolsMenu.appendChild(createMenuItem("Issue/Concern Prompt", function() {
         showSettingsModal("Issue/Concern Prompt Settings", "summary", "Enter prompt template. Use {{transcript}} for the transcript placeholder.");
