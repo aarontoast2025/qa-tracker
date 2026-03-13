@@ -92,8 +92,9 @@ export async function POST(req: Request) {
     // If PDF is provided, extract text from it
     if (pdfBase64) {
       try {
-        // Use dynamic import for pdf-parse to avoid build-time issues
-        const pdf = (await import('pdf-parse/lib/pdf-parse.js')).default;
+        // Use require for the internal path to avoid ESM build-time default export checks
+        // @ts-ignore
+        const pdf = require('pdf-parse/lib/pdf-parse.js');
         const buffer = Buffer.from(pdfBase64, 'base64');
         const data = await pdf(buffer);
         transcript = data.text;
