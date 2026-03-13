@@ -867,17 +867,47 @@
         // --- Input Section ---
         var divInputs = createElement("div", "display:flex; flex-direction:column; gap:15px; padding-right:5px");
         
-        // PDF Upload
+        // PDF/TXT Upload
         var grpPdf = createElement("div");
         var lblPdf = createElement("label", sLabel);
-        lblPdf.textContent = "Upload Chat Transcript (PDF)";
+        lblPdf.textContent = "Upload Chat Transcript (PDF or TXT)";
         var inpPdf = createElement("input");
         inpPdf.type = "file";
-        inpPdf.accept = "application/pdf";
+        inpPdf.accept = ".pdf,.txt";
         inpPdf.style.cssText = sInput;
         grpPdf.appendChild(lblPdf);
         grpPdf.appendChild(inpPdf);
         divInputs.appendChild(grpPdf);
+
+        // OR Separator
+        var orDivider = createElement("div", "text-align:center; margin:5px 0; font-size:11px; color:#999; font-weight:bold");
+        orDivider.textContent = "— OR PASTE TEXT —";
+        divInputs.appendChild(orDivider);
+
+        // Text Transcript
+        var grpTranscript = createElement("div");
+        var lblTranscript = createElement("label", sLabel);
+        lblTranscript.textContent = "Transcript (Text)";
+        var txtTranscript = createElement("textarea", sTextarea + "; height:120px");
+        txtTranscript.placeholder = "Paste text transcript here or upload a .txt file above...";
+        grpTranscript.appendChild(lblTranscript);
+        grpTranscript.appendChild(txtTranscript);
+        divInputs.appendChild(grpTranscript);
+
+        // Auto-extract text file content to textarea
+        addListener(inpPdf, "change", function(e) {
+            var file = e.target.files[0];
+            if (file && file.name.toLowerCase().endsWith('.txt')) {
+                var reader = new FileReader();
+                reader.onload = function(ev) {
+                    txtTranscript.value = ev.target.result;
+                    showToast("Text file extracted successfully!", false);
+                };
+                reader.readAsText(file);
+            } else if (file && file.name.toLowerCase().endsWith('.pdf')) {
+                showToast("PDF selected. Text will be extracted during generation.", false);
+            }
+        });
 
         var grpSubject = createElement("div");
         var lblSubject = createElement("label", sLabel);
@@ -926,25 +956,22 @@
         addListener(pBtnGen, "click", function(){
             var subject = inpSubject.value.trim();
             var notes = txtNotes.value.trim();
+            var pastedTranscript = txtTranscript.value.trim();
             var file = inpPdf.files[0];
 
-            if(!file) return showToast("Please upload a PDF transcript", true);
+            if(!file && !pastedTranscript) return showToast("Please upload a file or paste a transcript", true);
             if(!subject) return showToast("Subject Line is required", true);
             if(!notes) return showToast("Case Notes are required", true);
 
             pBtnGen.disabled = true;
-            pBtnGen.textContent = "Reading PDF... ⏳";
+            pBtnGen.textContent = "Generating... ⏳";
             pBtnCancel.disabled = true;
             pBtnCancel.style.opacity = "0.5";
 
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                var base64 = e.target.result.split(',')[1];
-                
-                pBtnGen.textContent = "Generating... ⏳";
+            var sendRequest = function(payload) {
                 resPlaceholder.innerHTML = "<div style='padding:20px; text-align:center; color:#666'>🚀 AI is analyzing your chat notes...</div>";
-
-                var payload = { pdfBase64: base64, subject: subject, notes: notes };
+                
+                console.log("Chat Checker: Sending request to " + API_BASE_URL + "/api/chat-checker");
                 
                 fetch(API_BASE_URL + '/api/chat-checker', {
                     method: 'POST',
@@ -954,7 +981,14 @@
                 .then(function(res){ 
                     if (!res.ok) {
                         return res.text().then(function(text) {
-                            throw new Error("Server error (" + res.status + "): " + text.substring(0, 100));
+                            var errorMsg = "Server error (" + res.status + ")";
+                            try {
+                                var json = JSON.parse(text);
+                                if (json.error) errorMsg += ": " + json.error;
+                            } catch(e) {
+                                errorMsg += ": " + text.substring(0, 100);
+                            }
+                            throw new Error(errorMsg);
                         });
                     }
                     return res.json(); 
@@ -981,8 +1015,13 @@
                     }
                 })
                 .catch(function(e){
-                    showToast(e.message, true);
-                    resPlaceholder.innerHTML = "<div style='color:#ef4444; padding:20px; text-align:center'>❌ Error: " + e.message + "</div>";
+                    console.error("Chat Checker Fetch Error:", e);
+                    var msg = e.message;
+                    if (msg === "Failed to fetch") {
+                        msg = "Failed to fetch. This usually means a CORS block or Network Error. Check if " + API_BASE_URL + " is reachable.";
+                    }
+                    showToast(msg, true);
+                    resPlaceholder.innerHTML = "<div style='color:#ef4444; padding:20px; text-align:center'>❌ Error: " + msg + "</div>";
                 })
                 .finally(function(){
                     pBtnGen.disabled = false;
@@ -991,14 +1030,34 @@
                     pBtnCancel.style.opacity = "1";
                 });
             };
-            reader.onerror = function() {
-                showToast("Failed to read PDF file", true);
-                pBtnGen.disabled = false;
-                pBtnGen.textContent = "Generate";
-                pBtnCancel.disabled = false;
-                pBtnCancel.style.opacity = "1";
-            };
-            reader.readAsDataURL(file);
+
+            if (pastedTranscript) {
+                sendRequest({ transcript: pastedTranscript, subject: subject, notes: notes });
+            } else if (file) {
+                var reader = new FileReader();
+                if (file.name.toLowerCase().endsWith('.txt')) {
+                    reader.onload = function(e) {
+                        sendRequest({ transcript: e.target.result, subject: subject, notes: notes });
+                    };
+                    reader.onerror = function() {
+                        showToast("Failed to read text file", true);
+                        pBtnGen.disabled = false;
+                        pBtnGen.textContent = "Generate";
+                    };
+                    reader.readAsText(file);
+                } else {
+                    reader.onload = function(e) {
+                        var base64 = e.target.result.split(',')[1];
+                        sendRequest({ pdfBase64: base64, subject: subject, notes: notes });
+                    };
+                    reader.onerror = function() {
+                        showToast("Failed to read PDF file", true);
+                        pBtnGen.disabled = false;
+                        pBtnGen.textContent = "Generate";
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
         });
         
         pFooter.appendChild(pBtnGen);
