@@ -971,28 +971,12 @@
             var sendRequest = function(payload) {
                 resPlaceholder.innerHTML = "<div style='padding:20px; text-align:center; color:#666'>🚀 AI is analyzing your chat notes...</div>";
                 
-                console.log("Chat Checker: Sending request to " + API_BASE_URL + "/api/chat-checker");
-                
-                fetch(API_BASE_URL + '/api/chat-checker', {
+                fetch(API_BASE_URL + '/api/case-notes-checker', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 })
-                .then(function(res){ 
-                    if (!res.ok) {
-                        return res.text().then(function(text) {
-                            var errorMsg = "Server error (" + res.status + ")";
-                            try {
-                                var json = JSON.parse(text);
-                                if (json.error) errorMsg += ": " + json.error;
-                            } catch(e) {
-                                errorMsg += ": " + text.substring(0, 100);
-                            }
-                            throw new Error(errorMsg);
-                        });
-                    }
-                    return res.json(); 
-                })
+                .then(function(res){ return res.json(); })
                 .then(function(data){
                     if(data.result) {
                         resPlaceholder.innerHTML = "<div style='white-space:pre-wrap; padding:10px; user-select:text; cursor:text'>" + data.result + "</div>";
@@ -1015,13 +999,8 @@
                     }
                 })
                 .catch(function(e){
-                    console.error("Chat Checker Fetch Error:", e);
-                    var msg = e.message;
-                    if (msg === "Failed to fetch") {
-                        msg = "Failed to fetch. This usually means a CORS block or Network Error. Check if " + API_BASE_URL + " is reachable.";
-                    }
-                    showToast(msg, true);
-                    resPlaceholder.innerHTML = "<div style='color:#ef4444; padding:20px; text-align:center'>❌ Error: " + msg + "</div>";
+                    showToast(e.message, true);
+                    resPlaceholder.innerHTML = "<div style='color:#ef4444; padding:20px; text-align:center'>❌ Error: " + e.message + "</div>";
                 })
                 .finally(function(){
                     pBtnGen.disabled = false;
