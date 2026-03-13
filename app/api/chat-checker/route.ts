@@ -5,12 +5,6 @@ export const runtime = 'nodejs';
 
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
-
 const DEFAULT_PROMPT_TEMPLATE = `You are a Quality Assurance Specialist. Your task is to analyze a Specialist's case notes based on a transcript of the interaction and established guidelines.
 
 CONTEXT:
@@ -83,34 +77,37 @@ export async function POST(req: Request) {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500, headers: corsHeaders });
+      return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
     }
 
     const body = await req.json().catch(() => null);
     if (!body) {
-      return NextResponse.json({ error: 'Invalid request body' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
     const { transcript: textTranscript, pdfBase64, subject, notes } = body;
+    console.log("Chat Checker Request Received. Body size approx:", JSON.stringify(body).length);
 
     let transcript = textTranscript || "";
 
     // If PDF is provided, extract text from it
     if (pdfBase64) {
       try {
+        console.log("Processing PDF...");
         // @ts-ignore
         const pdf = require('pdf-parse/lib/pdf-parse.js');
         const buffer = Buffer.from(pdfBase64, 'base64');
         const data = await pdf(buffer);
         transcript = data.text;
+        console.log("PDF Extraction Success. Text length:", transcript?.length);
       } catch (pdfError: any) {
         console.error("PDF Parsing Error:", pdfError);
-        return NextResponse.json({ error: 'Failed to parse PDF: ' + pdfError.message }, { status: 400, headers: corsHeaders });
+        return NextResponse.json({ error: 'Failed to parse PDF: ' + pdfError.message }, { status: 400 });
       }
     }
 
     if (!transcript || transcript.trim().length === 0) {
-      return NextResponse.json({ error: 'No transcript provided or extracted from PDF' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: 'No transcript provided or extracted from PDF' }, { status: 400 });
     }
 
     const supabase = createAdminClient();
@@ -216,14 +213,14 @@ export async function POST(req: Request) {
     const data = await response.json();
     const result = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    return NextResponse.json({ result: result?.trim() }, { headers: corsHeaders });
+    return NextResponse.json({ result: result?.trim() });
     
   } catch (error: any) {
     console.error('Chat Checker error:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
 
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+  return new NextResponse(null, { status: 204 });
 }
