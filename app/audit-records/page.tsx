@@ -159,7 +159,7 @@ export default function AuditRecordsPublicPage() {
             .gte('date_evaluation', startStr)
             .lte('date_evaluation', endStr)
             .neq('status', 'deleted')
-            .order('created_at', { ascending: false });
+            .order('updated_at', { ascending: false });
 
         if (error) {
             console.error("Error fetching records:", error);
@@ -573,7 +573,7 @@ export default function AuditRecordsPublicPage() {
                                             <TableRow key={record.id} className="hover:bg-gray-50/50 transition-colors group text-xs md:text-sm">
                                                 <TableCell className="py-3">
                                                     <div className="flex flex-col gap-1">
-                                                        <span className="text-sm font-medium">{format(new Date(record.created_at), 'MMM d, h:mm a')}</span>
+                                                        <span className="text-sm font-medium">{format(new Date(record.updated_at), 'MMM d, h:mm a')}</span>
                                                         <ElapsedTime submittedAt={record.created_at} isCompleted={record.qa_score !== null && record.qa_score !== undefined} />
                                                     </div>
                                                 </TableCell>
