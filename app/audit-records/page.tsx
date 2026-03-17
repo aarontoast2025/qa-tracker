@@ -159,7 +159,7 @@ export default function AuditRecordsPublicPage() {
             .gte('date_evaluation', startStr)
             .lte('date_evaluation', endStr)
             .neq('status', 'deleted')
-            .order('updated_at', { ascending: false });
+            .order('created_at', { ascending: false });
 
         if (error) {
             console.error("Error fetching records:", error);
