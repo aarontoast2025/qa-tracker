@@ -43,6 +43,25 @@ export default function TestTargetPage() {
         <div className="text-xl font-bold mb-4">INT-123456789</div>
         <h4 className="text-gray-400 text-xs font-bold uppercase tracking-wider">Advocate Name</h4>
         <h2 className="text-2xl font-black text-gray-800">John Doe</h2>
+        
+        <div className="mt-8 pt-8 border-t">
+          <h4 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-4">Transcript</h4>
+          <div className="bg-gray-50 p-6 rounded-xl border border-dashed border-gray-300 space-y-4 max-h-96 overflow-y-auto">
+            <div className="spec-transcript-content p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+              <p className="text-sm leading-relaxed text-gray-700">
+                <strong>Advocate (John):</strong> Thank you for calling Customer Support. My name is John, how can I help you today? <br/>
+                <strong>Customer:</strong> Hi John, I'm calling because I noticed a double charge on my last invoice for the premium subscription. <br/>
+                <strong>Advocate (John):</strong> I'm sorry to hear about that double charge. I can certainly help you get that sorted out. May I have your account number or email address, please? <br/>
+                <strong>Customer:</strong> Sure, it's customer@example.com. <br/>
+                <strong>Advocate (John):</strong> Thank you. Please give me a moment while I pull up your records... Okay, I see the two charges from last Tuesday. It looks like a system glitch. I've initiated a refund for the second charge of $19.99. You should see it back in your account within 3-5 business days. <br/>
+                <strong>Customer:</strong> That's great, thank you so much for the quick help! <br/>
+                <strong>Advocate (John):</strong> You're very welcome! Is there anything else I can assist you with today? <br/>
+                <strong>Customer:</strong> No, that was it. Thanks again! <br/>
+                <strong>Advocate (John):</strong> It was my pleasure. Thank you for choosing our service, and have a wonderful day!
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-10">

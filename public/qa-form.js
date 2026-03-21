@@ -1081,6 +1081,9 @@
     toolsMenu.appendChild(createMenuItem("Case Notes Prompt", function() {
         showSettingsModal("Case Notes Prompt Settings", "case_notes", "Enter prompt template. Use {{transcript}}, {{guidelines}}, {{subject}}, and {{notes}} for placeholders.");
     }, toolsMenu));
+    toolsMenu.appendChild(createMenuItem("Personalize Prompt", function() {
+        showSettingsModal("Personalize Prompt Settings", "personalize", "Enter prompt template. Use {{transcript}} and {{items}} for placeholders.");
+    }, toolsMenu));
     toolsMenu.appendChild(createMenuItem("Dictionary", showDictionaryModal, toolsMenu));
     
     addListener(btnAiTools, "click", function(e){
@@ -1308,6 +1311,161 @@
 
     addListener(fInteractionId.input, 'blur', checkExistingRecord);
 
+    var handlePersonalization = function() {
+        var transcript = extractTranscript();
+        
+        var startPersonalization = function(tsText, onComplete) {
+            var itemsToPersonalize = [];
+            Object.keys(state).forEach(function(key) {
+                var s = state[key];
+                var selectedOption = s.options.find(function(o) { return o.id === s.sel; });
+                if (selectedOption && s.text.trim()) {
+                    var cleanLabel = (s.groupName + " - " + (s.options.find(function(o){ return o.id === s.sel; })?.label || "Item"));
+                    itemsToPersonalize.push({
+                        id: s.id,
+                        question: cleanLabel,
+                        original_feedback: s.text
+                    });
+                }
+            });
+
+            if (itemsToPersonalize.length === 0) {
+                showToast("No correct feedback items found to personalize.", true);
+                if (onComplete) onComplete(false);
+                return;
+            }
+
+            btnPersonalize.disabled = true;
+            btnPersonalize.textContent = "Personalizing... ⏳";
+
+            fetch(API_BASE_URL + '/api/personalize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    transcript: tsText,
+                    items: itemsToPersonalize
+                })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success && data.data) {
+                    Object.keys(data.data).forEach(function(itemId) {
+                        var key = Object.keys(state).find(function(k) { return state[k].id === itemId; });
+                        if (key && state[key]) {
+                            state[key].text = data.data[itemId];
+                            if (state[key].domTextarea) {
+                                state[key].domTextarea.value = data.data[itemId];
+                            }
+                        }
+                    });
+                    showToast("Feedback personalized successfully!", false);
+                    if (onComplete) onComplete(true);
+                } else {
+                    throw new Error(data.error || "Personalization failed");
+                }
+            })
+            .catch(function(e) {
+                showToast(e.message, true);
+                if (onComplete) onComplete(false);
+            })
+            .finally(function() {
+                btnPersonalize.disabled = false;
+                btnPersonalize.textContent = "Personalize";
+            });
+        };
+
+        if (!transcript || transcript.trim().length === 0) {
+            // Prompt for manual transcript
+            var pOverlay = createElement("div", sOverlay + "; z-index:100002; background:rgba(0,0,0,0.5)");
+            pOverlay.style.pointerEvents = "auto";
+            pOverlay.style.alignItems = "center";
+            
+            var pModal = createElement("div", sModal + "; height:auto; max-height:85vh; width:500px; cursor:default; user-select:auto; display:flex; flex-direction:column; overflow:visible");
+            var pHeader = createElement("div", sHeader);
+            pHeader.innerHTML = "<span>Upload Transcript</span>";
+            var pBody = createElement("div", "padding:20px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px");
+            
+            // File Upload Section
+            var fileLabel = createElement("label", sLabel);
+            fileLabel.textContent = "Upload Transcript File (.txt)";
+            var fileInput = createElement("input");
+            fileInput.type = "file";
+            fileInput.accept = ".txt";
+            fileInput.style.cssText = sInput;
+            
+            pBody.appendChild(fileLabel);
+            pBody.appendChild(fileInput);
+
+            var orDivider = createElement("div", "text-align:center; margin:5px 0; font-size:11px; color:#999; font-weight:bold");
+            orDivider.textContent = "— OR PASTE TEXT —";
+            pBody.appendChild(orDivider);
+            
+            var lbl = createElement("label", sLabel);
+            lbl.textContent = "Transcript Text:";
+            var txt = createElement("textarea", sTextarea + "; height:250px");
+            txt.placeholder = "Paste transcript here...";
+            
+            pBody.appendChild(lbl);
+            pBody.appendChild(txt);
+
+            // Handle file selection
+            addListener(fileInput, "change", function(e) {
+                var file = e.target.files[0];
+                if (file && file.name.toLowerCase().endsWith('.txt')) {
+                    var reader = new FileReader();
+                    reader.onload = function(ev) {
+                        txt.value = ev.target.result;
+                        showToast("File loaded successfully!", false);
+                    };
+                    reader.readAsText(file);
+                } else if (file) {
+                    showToast("Please upload a .txt file", true);
+                }
+            });
+            
+            var pFooter = createElement("div", sFooter);
+            var pBtnCancel = createElement("button", sBtnCancel);
+            pBtnCancel.textContent = "Cancel";
+            addListener(pBtnCancel, "click", function() { pOverlay.remove(); });
+            
+            var pBtnOk = createElement("button", sBtnGenerate);
+            pBtnOk.textContent = "Start Personalization";
+            
+            addListener(pBtnOk, "click", function() {
+                var val = txt.value.trim();
+                if (val) {
+                    pBtnOk.disabled = true;
+                    pBtnOk.textContent = "Personalizing... ⏳";
+                    pBtnCancel.disabled = true;
+                    pBtnCancel.style.opacity = "0.5";
+                    
+                    startPersonalization(val, function(success) {
+                        if (success) {
+                            pOverlay.remove();
+                        } else {
+                            pBtnOk.disabled = false;
+                            pBtnOk.textContent = "Start Personalization";
+                            pBtnCancel.disabled = false;
+                            pBtnCancel.style.opacity = "1";
+                        }
+                    });
+                } else {
+                    showToast("Transcript is required", true);
+                }
+            });
+            
+            pFooter.appendChild(pBtnCancel);
+            pFooter.appendChild(pBtnOk);
+            pModal.appendChild(pHeader);
+            pModal.appendChild(pBody);
+            pModal.appendChild(pFooter);
+            pOverlay.appendChild(pModal);
+            document.body.appendChild(pOverlay);
+        } else {
+            startPersonalization(transcript);
+        }
+    };
+
     // Footer
     var footer = createElement("div", sFooter);
     var btnCancel = createElement("button", sBtnCancel);
@@ -1330,19 +1488,58 @@
         });
     });
 
-    var btnGenerateOnly = createElement("button", sBtnGenerate);
-    btnGenerateOnly.textContent = "Generate";
-    btnGenerateOnly.style.backgroundColor = "#4f46e5";
+    var btnPersonalize = createElement("button", sBtnGenerate);
+    btnPersonalize.textContent = "Personalize";
+    btnPersonalize.style.backgroundColor = "#8b5cf6";
+    addListener(btnPersonalize, "click", handlePersonalization);
+
+    // Generate Dropdown Container
+    var genDropdownContainer = createElement("div");
+    genDropdownContainer.style.cssText = "position:relative; display:flex; align-items:stretch";
 
     var btnGenerate = createElement("button", sBtnGenerate);
     btnGenerate.textContent = "Generate & Save";
+    btnGenerate.style.borderRadius = "4px 0 0 4px";
+    btnGenerate.style.margin = "0";
+
+    var btnGenToggle = createElement("button", sBtnGenerate);
+    btnGenToggle.innerHTML = "&#9662;";
+    btnGenToggle.style.padding = "8px 10px";
+    btnGenToggle.style.borderRadius = "0 4px 4px 0";
+    btnGenToggle.style.borderLeft = "1px solid rgba(255,255,255,0.2)";
+    btnGenToggle.style.margin = "0";
+    btnGenToggle.style.flex = "none";
+
+    var genMenu = createElement("div");
+    genMenu.style.cssText = "position:absolute; bottom:100%; right:0; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 -4px 12px rgba(0,0,0,0.15); display:none; flex-direction:column; min-width:160px; z-index:100001; margin-bottom:5px; overflow:hidden";
+
+    var btnGenerateOnly = createElement("button");
+    btnGenerateOnly.textContent = "Generate";
+    btnGenerateOnly.style.cssText = "width:100%; text-align:left; padding:10px 15px; border:none; background:white; cursor:pointer; font-size:13px; color:#333; transition:background 0.2s; font-family:inherit; font-weight:500";
+    addListener(btnGenerateOnly, "mouseenter", function(){ btnGenerateOnly.style.background = "#f5f5f5"; });
+    addListener(btnGenerateOnly, "mouseleave", function(){ btnGenerateOnly.style.background = "white"; });
+
+    genMenu.appendChild(btnGenerateOnly);
+    genDropdownContainer.appendChild(btnGenerate);
+    genDropdownContainer.appendChild(btnGenToggle);
+    genDropdownContainer.appendChild(genMenu);
+
+    addListener(btnGenToggle, "click", function(e){
+        e.stopPropagation();
+        var isVisible = genMenu.style.display === "flex";
+        genMenu.style.display = isVisible ? "none" : "flex";
+    });
+
+    addListener(document, "click", function(){
+        genMenu.style.display = "none";
+    });
 
     var handleGeneration = function(saveToDb) {
         var activeBtn = saveToDb ? btnGenerate : btnGenerateOnly;
         var originalText = activeBtn.textContent;
         activeBtn.textContent = "Generating... ⏳";
 
-        [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel].forEach(function(b){
+        [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel, btnGenToggle].forEach(function(b){
             b.disabled = true;
             b.style.opacity = "0.7";
             b.style.cursor = "not-allowed";
@@ -1358,7 +1555,7 @@
                 if(saveToDb) {
                                             saveRecord().then(function(){
                                                 activeBtn.textContent = originalText;
-                                                [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel].forEach(function(b){
+                                                [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel, btnGenToggle].forEach(function(b){
                                                     b.disabled = false;
                                                     b.style.opacity = "1";
                                                     b.style.cursor = "pointer";
@@ -1370,19 +1567,21 @@
                                                 }, 1500);
                                             }).catch(function(e){                        showToast("Generated, but save failed: " + e.message, true);
                         activeBtn.textContent = originalText;
-                        [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel].forEach(function(b){
+                        [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel, btnGenToggle].forEach(function(b){
                             b.disabled = false;
                             b.style.opacity = "1";
+                            b.style.cursor = "pointer";
                         });
                     });
                 } else {
                     activeBtn.textContent = originalText;
-                    [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel].forEach(function(b){
+                    [btnGenerate, btnGenerateOnly, btnSaveOnly, btnCancel, btnGenToggle].forEach(function(b){
                         b.disabled = false;
                         b.style.opacity = "1";
                         b.style.cursor = "pointer";
                     });
                     showToast("Generated successfully!", false);
+                    genMenu.style.display = "none";
                 }
                 return;
             }
@@ -1446,9 +1645,9 @@
     addListener(btnGenerateOnly, "click", function(){ handleGeneration(false); });
 
     footer.appendChild(btnCancel);
+    footer.appendChild(btnPersonalize);
     footer.appendChild(btnSaveOnly);
-    footer.appendChild(btnGenerateOnly);
-    footer.appendChild(btnGenerate);
+    footer.appendChild(genDropdownContainer);
 
     modal.appendChild(header);
     modal.appendChild(contentContainer);

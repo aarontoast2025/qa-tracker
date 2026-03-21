@@ -90,7 +90,8 @@ export async function updateSession(request: NextRequest) {
                      request.nextUrl.pathname.startsWith("/api/summarize") ||
                      request.nextUrl.pathname.startsWith("/api/ai-config") ||
                      request.nextUrl.pathname.startsWith("/api/dictionary") ||
-                     request.nextUrl.pathname.startsWith("/api/case-notes-checker");
+                     request.nextUrl.pathname.startsWith("/api/case-notes-checker") ||
+                     request.nextUrl.pathname.startsWith("/api/personalize");
   const isPublicFile = request.nextUrl.pathname === "/qa-form.js";
   const isPublicPage = request.nextUrl.pathname.startsWith("/audit-records") || 
                      request.nextUrl.pathname.startsWith("/recorder");
