@@ -740,9 +740,15 @@
             pBtnCancel.disabled = true;
             pBtnCancel.style.opacity = "0.5";
 
-            resPlaceholder.innerHTML = "<div style='padding:20px; text-align:center; color:#666'>🚀 AI is analyzing your notes...</div>";
+            resPlaceholder.innerHTML = "<div style='padding:20px; text-align:center; color:#666'>🚀 AI is analyzing your notes and personalizing feedback...</div>";
 
-            var payload = { transcript: transcript, subject: subject, notes: notes };
+            var itemsToPersonalize = collectItemsToPersonalize();
+            var payload = { 
+                transcript: transcript, 
+                subject: subject, 
+                notes: notes,
+                items: itemsToPersonalize
+            };
             console.log("QA Tool [Case Notes Checker] Sending payload:", payload);
 
             fetch(API_BASE_URL + '/api/case-notes-checker', {
@@ -765,6 +771,11 @@
                             fIssueConcern.input.value = summary;
                             fIssueConcern.input.dispatchEvent(new Event('input'));
                         }
+                    }
+
+                    // Apply personalized feedback if any
+                    if (data.personalized) {
+                        applyPersonalizedFeedback(data.personalized);
                     }
 
                     showToast("Analysis complete!", false);
@@ -969,8 +980,10 @@
             pBtnCancel.style.opacity = "0.5";
 
             var sendRequest = function(payload) {
-                resPlaceholder.innerHTML = "<div style='padding:20px; text-align:center; color:#666'>🚀 AI is analyzing your chat notes...</div>";
+                resPlaceholder.innerHTML = "<div style='padding:20px; text-align:center; color:#666'>🚀 AI is analyzing your chat notes and personalizing feedback...</div>";
                 
+                payload.items = collectItemsToPersonalize();
+
                 fetch(API_BASE_URL + '/api/case-notes-checker', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -989,6 +1002,11 @@
                                 fIssueConcern.input.value = summary;
                                 fIssueConcern.input.dispatchEvent(new Event('input'));
                             }
+                        }
+
+                        // Apply personalized feedback if any
+                        if (data.personalized) {
+                            applyPersonalizedFeedback(data.personalized);
                         }
 
                         showToast("Analysis complete!", false);
@@ -1264,6 +1282,37 @@
         });
     };
 
+    var collectItemsToPersonalize = function() {
+        var itemsToPersonalize = [];
+        Object.keys(state).forEach(function(key) {
+            var s = state[key];
+            var selectedOption = s.options.find(function(o) { return o.id === s.sel; });
+            if (selectedOption && s.text.trim()) {
+                var cleanLabel = (s.groupName + " - " + (s.options.find(function(o){ return o.id === s.sel; })?.label || "Item"));
+                itemsToPersonalize.push({
+                    id: s.id,
+                    question: cleanLabel,
+                    original_feedback: s.text
+                });
+            }
+        });
+        return itemsToPersonalize;
+    };
+
+    var applyPersonalizedFeedback = function(personalizedData) {
+        if (!personalizedData) return;
+        Object.keys(personalizedData).forEach(function(itemId) {
+            var key = Object.keys(state).find(function(k) { return state[k].id === itemId; });
+            if (key && state[key]) {
+                state[key].text = personalizedData[itemId];
+                if (state[key].domTextarea) {
+                    state[key].domTextarea.value = personalizedData[itemId];
+                }
+            }
+        });
+        showToast("Feedback personalized successfully!", false);
+    };
+
     var checkExistingRecord = function() {
         var iId = fInteractionId.input.value.trim();
         if(!iId) return;
@@ -1315,19 +1364,7 @@
         var transcript = extractTranscript();
         
         var startPersonalization = function(tsText, onComplete) {
-            var itemsToPersonalize = [];
-            Object.keys(state).forEach(function(key) {
-                var s = state[key];
-                var selectedOption = s.options.find(function(o) { return o.id === s.sel; });
-                if (selectedOption && s.text.trim()) {
-                    var cleanLabel = (s.groupName + " - " + (s.options.find(function(o){ return o.id === s.sel; })?.label || "Item"));
-                    itemsToPersonalize.push({
-                        id: s.id,
-                        question: cleanLabel,
-                        original_feedback: s.text
-                    });
-                }
-            });
+            var itemsToPersonalize = collectItemsToPersonalize();
 
             if (itemsToPersonalize.length === 0) {
                 showToast("No correct feedback items found to personalize.", true);
@@ -1349,16 +1386,7 @@
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data.success && data.data) {
-                    Object.keys(data.data).forEach(function(itemId) {
-                        var key = Object.keys(state).find(function(k) { return state[k].id === itemId; });
-                        if (key && state[key]) {
-                            state[key].text = data.data[itemId];
-                            if (state[key].domTextarea) {
-                                state[key].domTextarea.value = data.data[itemId];
-                            }
-                        }
-                    });
-                    showToast("Feedback personalized successfully!", false);
+                    applyPersonalizedFeedback(data.data);
                     if (onComplete) onComplete(true);
                 } else {
                     throw new Error(data.error || "Personalization failed");

@@ -74,7 +74,7 @@ INSTRUCTIONS:
 
 export async function POST(req: Request) {
   try {
-    const { transcript, subject, notes } = await req.json();
+    const { transcript, subject, notes, items, pdfBase64 } = await req.json();
 
     if (!GEMINI_API_KEY) {
       return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
@@ -86,10 +86,11 @@ export async function POST(req: Request) {
     const { data: configs } = await supabase
         .from('ai_features_config')
         .select('*')
-        .in('feature_key', ['case_notes', 'summary']);
+        .in('feature_key', ['case_notes', 'summary', 'personalize']);
     
     const caseNotesConfig = configs?.find(c => c.feature_key === 'case_notes');
     const summaryConfig = configs?.find(c => c.feature_key === 'summary');
+    const personalizeConfig = configs?.find(c => c.feature_key === 'personalize');
 
     // 2. Fetch Guidelines
     const { data: guidelines, error: guidelinesError } = await supabase
@@ -121,8 +122,31 @@ export async function POST(req: Request) {
     }
 
     const model = caseNotesConfig?.model_name || DEFAULT_GEMINI_MODEL;
-    const template = caseNotesConfig?.prompt_template || DEFAULT_PROMPT_TEMPLATE;
+    let template = caseNotesConfig?.prompt_template || DEFAULT_PROMPT_TEMPLATE;
     const summaryPrompt = summaryConfig?.prompt_template || "Summarize the transcript concisely, identifying the customer's concern and the resolution. Do not use names.";
+
+    // If items are provided for personalization, append personalization task to the prompt
+    if (items && Array.isArray(items) && items.length > 0) {
+        const personalizeInstructions = personalizeConfig?.prompt_template || `Using the provided transcript, rephrase the following feedback items to be specific to the interaction.
+Each personalized feedback must be exactly one paragraph in English.
+If the original feedback is in Filipino, translate and rephrase it into English.
+Maintain the core message but add context from the transcript.
+Return the result in JSON format where keys are the item IDs and values are the personalized feedback strings.`;
+
+        const itemsFormatted = items.map(item => `ID: ${item.id}, Question: ${item.question}, Current Feedback: ${item.original_feedback}`).join("\n");
+
+        template += `\n\nADDITIONAL TASK: PERSONALIZATION
+${personalizeInstructions}
+
+ITEMS TO PERSONALIZE:
+${itemsFormatted}
+
+FORMAT FOR PERSONALIZATION:
+Append a section at the very end of your response as follows:
+---------------------------------------------------------
+PERSONALIZED_FEEDBACK_JSON
+{ "itemId": "personalized feedback", ... }`;
+    }
 
     // 4. Construct Prompt
     let prompt = template;
@@ -130,7 +154,7 @@ export async function POST(req: Request) {
     // Use a more robust replacement strategy
     const replacements: Record<string, string> = {
         '{{guidelines}}': guidelinesText,
-        '{{transcript}}': transcript,
+        '{{transcript}}': transcript || (pdfBase64 ? "[PDF Transcript Attached]" : ""),
         '{{subject}}': subject,
         '{{notes}}': notes,
         '{{summary_prompt}}': summaryPrompt
@@ -153,7 +177,7 @@ export async function POST(req: Request) {
     if (!allPlaceholdersPresent) {
         prompt = `CONTEXT DATA:\n` +
                  `Guidelines: ${guidelinesText}\n\n` +
-                 `Transcript: ${transcript}\n\n` +
+                 `Transcript: ${transcript || (pdfBase64 ? "[PDF Transcript Attached]" : "")}\n\n` +
                  `Subject Line: ${subject}\n\n` +
                  `Case Notes: ${notes}\n\n` +
                  `Summary Instructions: ${summaryPrompt}\n\n` +
@@ -168,11 +192,21 @@ export async function POST(req: Request) {
     // 5. Call Gemini API
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
     
+    const parts: any[] = [{ text: prompt }];
+    if (pdfBase64) {
+        parts.push({
+            inline_data: {
+                mime_type: "application/pdf",
+                data: pdfBase64
+            }
+        });
+    }
+
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: [{ parts: parts }],
         generationConfig: { temperature: 0.7 }
       })
     });
@@ -183,9 +217,27 @@ export async function POST(req: Request) {
     }
 
     const data = await response.json();
-    const result = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    let result = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    return NextResponse.json({ result: result?.trim() });
+    let personalizedData = null;
+    if (items && items.length > 0) {
+        const jsonMatch = result.match(/PERSONALIZED_FEEDBACK_JSON\n([\s\S]*)$|PERSONALIZED_FEEDBACK_JSON([\s\S]*)$/);
+        if (jsonMatch) {
+            const jsonStr = (jsonMatch[1] || jsonMatch[2]).trim();
+            try {
+                personalizedData = JSON.parse(jsonStr);
+                // Clean up the result to remove the JSON section from the visible analysis
+                result = result.replace(/---------------------------------------------------------\n?PERSONALIZED_FEEDBACK_JSON[\s\S]*$/, "").trim();
+            } catch (e) {
+                console.error("Failed to parse personalized feedback JSON:", e);
+            }
+        }
+    }
+
+    return NextResponse.json({ 
+        result: result.trim(),
+        personalized: personalizedData 
+    });
     
   } catch (error: any) {
     console.error('Case Notes Checker error:', error);
